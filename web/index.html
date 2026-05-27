@@ -2386,11 +2386,20 @@ function switchProfilTab(btn, tabName) {
 // ═══════════════════════════════════════
 async function loadSources() {
   const sourcesMeta = [
-    { name: 'OffeneRegister', desc: 'Handelsregister-Bulk (JSONL)', icon: '⬡', color: 'purple', key: 'offeneregister' },
-    { name: 'GLEIF', desc: 'Legal Entity Identifier + Ownership-Daten', icon: '◎', color: 'blue', key: 'gleif' },
-    { name: 'Registerbekanntmachungen', desc: 'Tägliche Handelsregister-Updates', icon: '⬢', color: 'green', key: 'registerbekanntmachungen' },
+    { name: 'OffeneRegister', desc: '5,3M Firmen aus Handelsregister-Bulk (JSONL)', icon: '⬡', color: 'purple', key: 'offeneregister' },
+    { name: 'GLEIF', desc: 'LEI + Ownership-Daten (Wer besitzt wen?)', icon: '◎', color: 'blue', key: 'gleif' },
+    { name: 'Bundesanzeiger', desc: 'Jahresabschlüsse, Umsatz, Mitarbeiterzahl', icon: '◉', color: 'green', key: 'bundesanzeiger' },
+    { name: 'BA Jobbörse', desc: 'Stellenangebote als Wachstumsindikator', icon: '◈', color: 'blue', key: 'ba-jobs' },
+    { name: 'Impressum-Scraper', desc: 'GF, Telefon, E-Mail, USt-ID von Firmenwebseiten', icon: '◇', color: 'coral', key: 'impressum' },
+    { name: 'Registerbekanntmachungen', desc: 'Tägliche HR-Updates (Neugründungen, Änderungen)', icon: '⬢', color: 'green', key: 'registerbekanntmachungen' },
     { name: 'Insolvenzbekanntmachungen', desc: 'Insolvenz-Tracking Deutschland', icon: '⚠', color: 'amber', key: 'insolvenzbekanntmachungen' },
-    { name: 'Handelsregister (Live)', desc: 'On-Demand Detail-Scraper', icon: '◆', color: 'coral', key: 'handelsregister' },
+    { name: 'Handelsregister (Live)', desc: 'On-Demand Detail-Scraper (SI-Dokumente)', icon: '◆', color: 'coral', key: 'handelsregister' },
+    { name: 'DPMA Patente', desc: 'Deutsche Patente und Marken', icon: '⊕', color: 'purple', key: 'dpma' },
+    { name: 'TED Ausschreibungen', desc: 'EU-weite öffentliche Ausschreibungen', icon: '⊞', color: 'blue', key: 'ted' },
+    { name: 'Open Legal Data', desc: 'Gerichtsentscheidungen mit API', icon: '⊘', color: 'amber', key: 'openlegaldata' },
+    { name: 'Förderkatalog', desc: 'Bewilligte Förderprojekte (Bund)', icon: '⊛', color: 'green', key: 'foerderkatalog' },
+    { name: 'VIES', desc: 'EU USt-ID-Validierung', icon: '⊜', color: 'blue', key: 'vies' },
+    { name: 'Google Places', desc: 'Bewertungen, Rating, Standorte', icon: '⊙', color: 'coral', key: 'google-places' },
   ];
 
   let stats = {};
