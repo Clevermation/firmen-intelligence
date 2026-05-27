@@ -2,6 +2,10 @@ import index from "../web/index.html";
 import { searchEntities, getEntityById, getStats } from "./queries/search";
 import { getNetwork } from "./queries/network";
 import { importOffeneRegister } from "./importers/offeneregister-fast-server";
+import { ensureSchema } from "./db/connection";
+
+// DB-Schema sicherstellen beim Start
+await ensureSchema();
 
 const PORT = parseInt(process.env.PORT ?? "3000");
 
