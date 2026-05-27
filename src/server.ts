@@ -6,6 +6,12 @@ import { importPersons } from "./importers/persons-server";
 import { importBundesanzeiger } from "./importers/bundesanzeiger";
 import { importBAJobs } from "./importers/ba-jobs";
 import { importImpressumFuerEntity, importImpressumBatch } from "./importers/impressum";
+import { importDPMA } from "./importers/dpma";
+import { importTED } from "./importers/ted";
+import { importGooglePlaces } from "./importers/google-places";
+import { importOpenLegalData } from "./importers/openlegaldata";
+import { importFoerderkatalog } from "./importers/foerderkatalog";
+import { importVIES } from "./importers/vies";
 // ensureSchema() ist in db/connection.ts verfügbar, wird aber nicht beim
 // Server-Start aufgerufen — das Schema wird durch schema-init im Compose erstellt.
 
@@ -452,6 +458,140 @@ Bun.serve({
         importImpressumBatch(limit).catch(console.error);
         return jsonResponse({
           message: `Impressum-Batch-Import gestartet (max. ${limit} Firmen), läuft im Hintergrund`,
+        });
+      },
+    },
+
+    // ── Import: DPMA Patente ──
+    "/api/import/dpma": {
+      POST: async (req) => {
+        const body = (await req.json().catch(() => ({}))) as {
+          entityIds?: string[];
+        };
+
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'dpma' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "DPMA-Import läuft bereits" });
+        }
+
+        importDPMA(body.entityIds).catch(console.error);
+        return jsonResponse({
+          message: "DPMA-Patent-Import gestartet, läuft im Hintergrund",
+          entityIds: body.entityIds ?? "Top-500 Firmen",
+        });
+      },
+    },
+
+    // ── Import: TED Ausschreibungen ──
+    "/api/import/ted": {
+      POST: async () => {
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'ted' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "TED-Import läuft bereits" });
+        }
+
+        importTED().catch(console.error);
+        return jsonResponse({
+          message: "TED-Ausschreibungs-Import gestartet, läuft im Hintergrund",
+        });
+      },
+    },
+
+    // ── Import: Google Places ──
+    "/api/import/google-places": {
+      POST: async (req) => {
+        if (!process.env.GOOGLE_PLACES_API_KEY) {
+          return errorResponse(
+            "GOOGLE_PLACES_API_KEY nicht konfiguriert. Bitte als Umgebungsvariable setzen.",
+            400
+          );
+        }
+
+        const body = (await req.json().catch(() => ({}))) as {
+          entityIds?: string[];
+        };
+
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'google-places' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "Google-Places-Import läuft bereits" });
+        }
+
+        importGooglePlaces(body.entityIds).catch(console.error);
+        return jsonResponse({
+          message: "Google-Places-Import gestartet, läuft im Hintergrund",
+          entityIds: body.entityIds ?? "Top-500 Firmen ohne Google-Daten",
+        });
+      },
+    },
+
+    // ── Import: Open Legal Data ──
+    "/api/import/openlegaldata": {
+      POST: async (req) => {
+        const body = (await req.json().catch(() => ({}))) as {
+          entityIds?: string[];
+        };
+
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'openlegaldata' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "OpenLegalData-Import läuft bereits" });
+        }
+
+        importOpenLegalData(body.entityIds).catch(console.error);
+        return jsonResponse({
+          message: "OpenLegalData-Import gestartet, läuft im Hintergrund",
+          entityIds: body.entityIds ?? "Top-500 Firmen",
+        });
+      },
+    },
+
+    // ── Import: Förderkatalog ──
+    "/api/import/foerderkatalog": {
+      POST: async (req) => {
+        const body = (await req.json().catch(() => ({}))) as {
+          entityIds?: string[];
+        };
+
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'foerderkatalog' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "Förderkatalog-Import läuft bereits" });
+        }
+
+        importFoerderkatalog(body.entityIds).catch(console.error);
+        return jsonResponse({
+          message: "Förderkatalog-Import gestartet, läuft im Hintergrund",
+          entityIds: body.entityIds ?? "Top-500 Firmen",
+        });
+      },
+    },
+
+    // ── Import: VIES USt-ID-Validierung ──
+    "/api/import/vies": {
+      POST: async (req) => {
+        const url = new URL(req.url);
+        const entityId = url.searchParams.get("entityId");
+
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'vies' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "VIES-Validierung läuft bereits" });
+        }
+
+        importVIES(entityId ?? undefined).catch(console.error);
+        return jsonResponse({
+          message: entityId
+            ? `VIES-Validierung für Entity ${entityId} gestartet`
+            : "VIES-Validierung gestartet (alle Firmen mit USt-ID), läuft im Hintergrund",
         });
       },
     },
