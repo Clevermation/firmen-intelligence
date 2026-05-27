@@ -1,11 +1,14 @@
 {
-  "name": "handelsregister-api",
-  "version": "2.0.0",
-  "description": "Moderne TypeScript-API + CLI für das deutsche Handelsregister",
+  "name": "firmen-intelligence",
+  "version": "1.0.0",
+  "description": "Deutsche Firmen-Intelligence-Plattform — Handelsregister, GLEIF, Insolvenz, Events + Graph",
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "search": "bun run src/cli.ts",
+    "firmendb": "bun run src/firmendb.ts",
+    "hr-search": "bun run src/cli.ts",
+    "import:or": "bun run src/importers/offeneregister.ts",
+    "server": "bun run src/server.ts",
     "test": "bun test"
   },
   "devDependencies": {

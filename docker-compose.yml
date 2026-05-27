@@ -1,0 +1,35 @@
+services:
+  db:
+    image: apache/age
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: firmendb
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-firmendb_dev_2026}
+      POSTGRES_DB: firmendb
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./src/db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U firmendb -d firmendb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://firmendb:${DB_PASSWORD:-firmendb_dev_2026}@db:5432/firmendb
+      PORT: ${PORT:-3000}
+    ports:
+      - "${PORT:-3000}:3000"
+
+volumes:
+  pgdata:
