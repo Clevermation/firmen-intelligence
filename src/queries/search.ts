@@ -8,15 +8,23 @@ export interface SearchFilters {
   status?: string;
   registerArt?: string;
   gruendungNach?: string;
+  entityType?: string; // 'firma', 'person' oder undefined (= alle)
   limit?: number;
   offset?: number;
 }
 
 export async function searchEntities(filters: SearchFilters) {
   const db = getDb();
-  const conditions: string[] = ["e.entity_type = 'firma'"];
+  const conditions: string[] = [];
   const params: unknown[] = [];
   let paramIdx = 1;
+
+  // Entity-Type Filter: Standard = alle, optional einschränkbar
+  if (filters.entityType) {
+    conditions.push(`e.entity_type = $${paramIdx}`);
+    params.push(filters.entityType);
+    paramIdx++;
+  }
 
   if (filters.query) {
     conditions.push(`e.search_vector @@ plainto_tsquery('german', $${paramIdx})`);
@@ -57,17 +65,19 @@ export async function searchEntities(filters: SearchFilters) {
   const limit = filters.limit ?? 25;
   const offset = filters.offset ?? 0;
 
-  const whereClause = conditions.join(" AND ");
+  const whereClause = conditions.length > 0
+    ? "WHERE " + conditions.join(" AND ")
+    : "";
 
   const countResult = await db.unsafe(
-    `SELECT count(*) as total FROM entities e WHERE ${whereClause}`,
+    `SELECT count(*) as total FROM entities e ${whereClause}`,
     params
   );
 
   const results = await db.unsafe(
-    `SELECT e.id, e.canonical_name, e.data, e.first_seen_at, e.updated_at
+    `SELECT e.id, e.entity_type, e.canonical_name, e.data, e.first_seen_at, e.updated_at
      FROM entities e
-     WHERE ${whereClause}
+     ${whereClause}
      ORDER BY e.canonical_name
      LIMIT ${limit} OFFSET ${offset}`,
     params
@@ -77,6 +87,7 @@ export async function searchEntities(filters: SearchFilters) {
     total: parseInt(countResult[0].total as string, 10),
     results: results.map((r) => ({
       id: r.id,
+      entityType: r.entity_type,
       name: r.canonical_name,
       data: r.data as Record<string, unknown>,
       firstSeen: r.first_seen_at,

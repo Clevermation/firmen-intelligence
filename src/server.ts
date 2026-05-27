@@ -2,6 +2,7 @@ import index from "../web/index.html";
 import { searchEntities, getEntityById, getStats } from "./queries/search";
 import { getNetwork } from "./queries/network";
 import { importOffeneRegister } from "./importers/offeneregister-fast-server";
+import { importPersons } from "./importers/persons-server";
 // ensureSchema() ist in db/connection.ts verfügbar, wird aber nicht beim
 // Server-Start aufgerufen — das Schema wird durch schema-init im Compose erstellt.
 
@@ -183,7 +184,7 @@ Bun.serve({
       },
     },
 
-    // ── Firmensuche ──
+    // ── Firmen- & Personensuche ──
     "/api/search": async (req) => {
       const url = new URL(req.url);
       const result = await searchEntities({
@@ -193,6 +194,7 @@ Bun.serve({
         bundesland: url.searchParams.get("bundesland") || undefined,
         status: url.searchParams.get("status") || undefined,
         registerArt: url.searchParams.get("registerArt") || undefined,
+        entityType: url.searchParams.get("entityType") || undefined,
         limit: parseInt(url.searchParams.get("limit") ?? "25", 10),
         offset: parseInt(url.searchParams.get("offset") ?? "0", 10),
       });
@@ -214,10 +216,88 @@ Bun.serve({
       return jsonResponse(network);
     },
 
+    // ── Autocomplete (schnell, prefix-basiert) ──
+    "/api/autocomplete": async (req) => {
+      const url = new URL(req.url);
+      const q = url.searchParams.get("q") ?? "";
+      const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "8", 10), 20);
+      if (q.length < 2) return jsonResponse([]);
+
+      const db = (await import("./db/connection")).getDb();
+      const escaped = q.replace(/'/g, "''").replace(/%/g, "\\%").replace(/_/g, "\\_");
+      const results = await db.unsafe(
+        `SELECT id, entity_type, canonical_name,
+                data->>'sitz' as sitz,
+                data->>'wohnort' as wohnort,
+                data->>'rechtsform' as rechtsform
+         FROM entities
+         WHERE lower(canonical_name) LIKE lower('${escaped}') || '%'
+         ORDER BY entity_type, length(canonical_name)
+         LIMIT ${limit}`
+      );
+      return jsonResponse(
+        results.map((r: any) => ({
+          id: r.id,
+          entity_type: r.entity_type,
+          canonical_name: r.canonical_name,
+          sitz: r.sitz ?? r.wohnort ?? "",
+          rechtsform: r.rechtsform ?? "",
+        }))
+      );
+    },
+
     // ── Dashboard-Statistiken ──
     "/api/stats": async () => {
       const stats = await getStats();
       return jsonResponse(stats);
+    },
+
+    // ── Import: Identifier erstellen ──
+    "/api/import/identifiers": {
+      POST: async () => {
+        const db = (await import("./db/connection")).getDb();
+        console.log("[Import] Erstelle Identifier...");
+        await db.unsafe(`
+          INSERT INTO entity_identifiers (entity_id, id_type, id_value, qualifier, source)
+          SELECT e.id, 'register_nr',
+                 (e.data->>'registerArt') || ' ' || (e.data->>'registerNummer'),
+                 e.data->>'gericht', 'offeneregister'
+          FROM entities e
+          WHERE e.entity_type = 'firma'
+            AND e.data->>'registerNummer' IS NOT NULL AND e.data->>'registerNummer' != ''
+            AND e.data->>'gericht' IS NOT NULL AND e.data->>'gericht' != ''
+          ON CONFLICT (id_type, id_value, qualifier) DO NOTHING
+        `);
+        await db.unsafe(`
+          INSERT INTO entity_identifiers (entity_id, id_type, id_value, qualifier, source)
+          SELECT e.id, 'or_company_number', e.data->>'or_company_number', NULL, 'offeneregister'
+          FROM entities e
+          WHERE e.entity_type = 'firma'
+            AND e.data->>'or_company_number' IS NOT NULL AND e.data->>'or_company_number' != ''
+          ON CONFLICT (id_type, id_value, qualifier) DO NOTHING
+        `);
+        const count = await db.unsafe("SELECT count(*) as c FROM entity_identifiers");
+        console.log("[Import] Identifier erstellt:", count[0].c);
+        return jsonResponse({ message: "Identifier erstellt", count: parseInt(count[0].c as string) });
+      },
+    },
+
+    // ── Import: Autocomplete-Index ──
+    "/api/import/autocomplete-index": {
+      POST: async () => {
+        const db = (await import("./db/connection")).getDb();
+        await db.unsafe("CREATE INDEX IF NOT EXISTS idx_entities_name_prefix ON entities (lower(canonical_name) text_pattern_ops)");
+        return jsonResponse({ message: "Autocomplete-Index erstellt" });
+      },
+    },
+
+    // ── Import: Personen aus OffeneRegister extrahieren ──
+    "/api/import/persons": {
+      POST: async () => {
+        const { importPersons } = await import("./importers/persons-server");
+        importPersons().catch(console.error);
+        return jsonResponse({ message: "Personen-Import gestartet" });
+      },
     },
 
     // ── Admin: Hängende Imports bereinigen ──
@@ -253,6 +333,87 @@ Bun.serve({
         importOffeneRegister().catch(console.error);
         return jsonResponse({
           message: "Import gestartet (Streaming-Modus), läuft im Hintergrund",
+        });
+      },
+    },
+
+    // ── Import: Identifier für alle Firmen erstellen ──
+    "/api/import/identifiers": {
+      POST: async () => {
+        const db = (await import("./db/connection")).getDb();
+
+        console.log("[Import] Identifier-Import gestartet...");
+
+        // Register-Nr Identifier
+        const regResult = await db.unsafe(`
+          INSERT INTO entity_identifiers (entity_id, id_type, id_value, qualifier, source)
+          SELECT e.id, 'register_nr',
+                 (e.data->>'registerArt') || ' ' || (e.data->>'registerNummer'),
+                 e.data->>'gericht', 'offeneregister'
+          FROM entities e
+          WHERE e.entity_type = 'firma'
+            AND e.data->>'registerNummer' IS NOT NULL AND e.data->>'registerNummer' != ''
+            AND e.data->>'gericht' IS NOT NULL AND e.data->>'gericht' != ''
+          ON CONFLICT (id_type, id_value, qualifier) DO NOTHING
+        `);
+        console.log(`[Import] Register-Nr Identifier: ${regResult.count} eingefügt`);
+
+        // OR-Company-Number Identifier
+        const orResult = await db.unsafe(`
+          INSERT INTO entity_identifiers (entity_id, id_type, id_value, qualifier, source)
+          SELECT e.id, 'or_company_number', e.data->>'or_company_number', NULL, 'offeneregister'
+          FROM entities e
+          WHERE e.entity_type = 'firma'
+            AND e.data->>'or_company_number' IS NOT NULL AND e.data->>'or_company_number' != ''
+          ON CONFLICT (id_type, id_value, qualifier) DO NOTHING
+        `);
+        console.log(`[Import] OR-Company-Number Identifier: ${orResult.count} eingefügt`);
+
+        return jsonResponse({
+          message: "Identifier erstellt",
+          registerNr: regResult.count,
+          orCompanyNumber: orResult.count,
+        });
+      },
+    },
+
+    // ── Import: Autocomplete-Index erstellen ──
+    "/api/import/autocomplete-index": {
+      POST: async () => {
+        const db = (await import("./db/connection")).getDb();
+        console.log("[Import] Autocomplete-Index wird erstellt...");
+
+        await db.unsafe(`
+          CREATE INDEX IF NOT EXISTS idx_entities_name_prefix
+          ON entities (lower(canonical_name) text_pattern_ops)
+        `);
+
+        console.log("[Import] Autocomplete-Index erstellt.");
+        return jsonResponse({ message: "Autocomplete-Index erstellt" });
+      },
+    },
+
+    // ── Import: Personen aus OffeneRegister ──
+    "/api/import/persons": {
+      POST: async () => {
+        const stats = await getStats();
+        const personCount = stats.entities?.person ?? 0;
+        if (personCount > 100000) {
+          return jsonResponse({
+            message: "Personen-Import bereits ausgeführt",
+            personen: personCount,
+          });
+        }
+        const running = (stats as any).lastImports?.some(
+          (i: any) =>
+            i.status === "running" && i.source?.includes("persons")
+        );
+        if (running) {
+          return jsonResponse({ message: "Personen-Import läuft bereits" });
+        }
+        importPersons().catch(console.error);
+        return jsonResponse({
+          message: "Personen-Import gestartet (Streaming-Modus), läuft im Hintergrund",
         });
       },
     },

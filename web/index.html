@@ -1288,6 +1288,108 @@
     .dialog-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
     .dialog-desc { font-size: 12.5px; color: var(--text-tertiary); margin-bottom: 20px; }
     .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+    /* ═══════════════════════════════════════
+       AUTOCOMPLETE DROPDOWN
+       ═══════════════════════════════════════ */
+    .autocomplete-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      margin-top: 4px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg), 0 0 40px rgba(148,88,245,0.06);
+      z-index: 80;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(-4px);
+      pointer-events: none;
+      transition: opacity var(--duration-normal) var(--ease-out),
+                  transform var(--duration-normal) var(--ease-out);
+    }
+    .autocomplete-dropdown.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .ac-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: background var(--duration-fast), border-color var(--duration-fast);
+      border-left: 3px solid transparent;
+    }
+    .ac-item:hover,
+    .ac-item.ac-active {
+      background: var(--bg-hover);
+      border-left-color: var(--clm-primary);
+    }
+    .ac-item + .ac-item {
+      border-top: 1px solid var(--border-subtle);
+    }
+    .ac-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .ac-icon.ac-firma {
+      background: var(--clm-primary-ghost);
+      color: var(--clm-primary-text);
+    }
+    .ac-icon.ac-person {
+      background: var(--clm-coral-ghost);
+      color: var(--clm-coral);
+    }
+    .ac-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .ac-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ac-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 1px;
+    }
+    .ac-ort {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+    }
+    .ac-rechtsform {
+      font-size: 9.5px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      letter-spacing: 0.3px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: var(--clm-primary-ghost);
+      color: var(--clm-primary-text);
+    }
+    .ac-empty {
+      padding: 14px 16px;
+      font-size: 12px;
+      color: var(--text-disabled);
+      text-align: center;
+      font-family: var(--font-mono);
+    }
   </style>
 </head>
 <body>
@@ -1438,7 +1540,8 @@
         <div class="search-bar-container">
           <div class="search-input-wrap">
             <span class="search-icon-left"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg></span>
-            <input type="text" id="q" class="search-main-input" placeholder="Firmenname, Ort, Registernummer …">
+            <input type="text" id="q" class="search-main-input" placeholder="Firmenname, Ort, Registernummer …" autocomplete="off">
+            <div id="ac-dropdown" class="autocomplete-dropdown"></div>
           </div>
           <button class="btn btn-primary" onclick="doSearch()">
             <span class="btn-text">Suchen</span>
@@ -1766,7 +1869,164 @@ async function loadDashboard() {
 // ═══════════════════════════════════════
 // SUCHE
 // ═══════════════════════════════════════
-document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+// ── Autocomplete ──
+(function initAutocomplete() {
+  const input = document.getElementById('q');
+  const dropdown = document.getElementById('ac-dropdown');
+  let acTimer = null;        // Debounce-Timer
+  let acItems = [];          // Aktuelle Vorschläge
+  let acIndex = -1;          // Aktiv hervorgehobener Index (-1 = keiner)
+  let acVisible = false;
+
+  function showDropdown() {
+    dropdown.classList.add('visible');
+    acVisible = true;
+  }
+  function hideDropdown() {
+    dropdown.classList.remove('visible');
+    acVisible = false;
+    acIndex = -1;
+  }
+
+  function renderItems(items) {
+    acItems = items;
+    acIndex = -1;
+    if (items.length === 0) {
+      dropdown.innerHTML = '<div class="ac-empty">Keine Vorschläge gefunden</div>';
+      showDropdown();
+      return;
+    }
+    dropdown.innerHTML = items.map((item, i) => {
+      const isFirma = item.entity_type === 'firma';
+      const icon = isFirma ? '◈' : '◉';
+      const iconCls = isFirma ? 'ac-firma' : 'ac-person';
+      const ort = item.sitz || item.wohnort || '';
+      return `<div class="ac-item" data-idx="${i}" data-id="${esc(item.id)}">
+        <div class="ac-icon ${iconCls}">${icon}</div>
+        <div class="ac-info">
+          <div class="ac-name">${esc(item.canonical_name)}</div>
+          <div class="ac-meta">
+            ${ort ? `<span class="ac-ort">${esc(ort)}</span>` : ''}
+            ${item.rechtsform ? `<span class="ac-rechtsform">${esc(item.rechtsform)}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    showDropdown();
+  }
+
+  function highlightItem(newIndex) {
+    const allItems = dropdown.querySelectorAll('.ac-item');
+    if (allItems.length === 0) return;
+    // Alten Highlight entfernen
+    allItems.forEach(el => el.classList.remove('ac-active'));
+    // Neuen Index clampen
+    if (newIndex < 0) newIndex = allItems.length - 1;
+    if (newIndex >= allItems.length) newIndex = 0;
+    acIndex = newIndex;
+    allItems[acIndex].classList.add('ac-active');
+    // In den sichtbaren Bereich scrollen
+    allItems[acIndex].scrollIntoView({ block: 'nearest' });
+  }
+
+  function selectItem(id) {
+    hideDropdown();
+    showProfil(id);
+  }
+
+  // Input-Handler mit Debounce
+  input.addEventListener('input', () => {
+    clearTimeout(acTimer);
+    const q = input.value.trim();
+    if (q.length < 2) {
+      hideDropdown();
+      return;
+    }
+    acTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API}/autocomplete?q=${encodeURIComponent(q)}&limit=8`);
+        if (!res.ok) { hideDropdown(); return; }
+        const data = await res.json();
+        // Nur anzeigen wenn Feld noch denselben Wert hat
+        if (input.value.trim() === q) {
+          renderItems(data);
+        }
+      } catch {
+        hideDropdown();
+      }
+    }, 200);
+  });
+
+  // Keyboard-Navigation
+  input.addEventListener('keydown', e => {
+    if (acVisible && acItems.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        highlightItem(acIndex + 1);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        highlightItem(acIndex - 1);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (acIndex >= 0 && acIndex < acItems.length) {
+          selectItem(acItems[acIndex].id);
+        } else {
+          // Kein Vorschlag gewählt → normale Suche
+          hideDropdown();
+          doSearch();
+        }
+        return;
+      }
+    } else if (e.key === 'Enter') {
+      hideDropdown();
+      doSearch();
+      return;
+    }
+
+    if (e.key === 'Escape' && acVisible) {
+      e.preventDefault();
+      e.stopPropagation();
+      hideDropdown();
+    }
+  });
+
+  // Klick auf Vorschlag
+  dropdown.addEventListener('mousedown', e => {
+    // mousedown statt click, damit es vor blur feuert
+    const item = e.target.closest('.ac-item');
+    if (item) {
+      e.preventDefault();
+      selectItem(item.dataset.id);
+    }
+  });
+
+  // Hover-Highlighting per Maus
+  dropdown.addEventListener('mousemove', e => {
+    const item = e.target.closest('.ac-item');
+    if (item) {
+      const idx = parseInt(item.dataset.idx, 10);
+      if (idx !== acIndex) {
+        highlightItem(idx);
+      }
+    }
+  });
+
+  // Klick außerhalb schließt Dropdown
+  document.addEventListener('click', e => {
+    if (acVisible && !input.contains(e.target) && !dropdown.contains(e.target)) {
+      hideDropdown();
+    }
+  });
+
+  // Wenn Feld geleert wird (z.B. durch Cut)
+  input.addEventListener('change', () => {
+    if (input.value.trim().length < 2) hideDropdown();
+  });
+})();
 
 async function doSearch(offset = 0) {
   searchOffset = offset;
