@@ -1390,6 +1390,315 @@
       text-align: center;
       font-family: var(--font-mono);
     }
+
+    /* ═══════════════════════════════════════
+       ENTITY-TYPE TOGGLE (Pill-Buttons)
+       ═══════════════════════════════════════ */
+    .entity-type-toggle {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 3px;
+      width: fit-content;
+    }
+    .entity-type-btn {
+      padding: 7px 18px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12.5px;
+      font-weight: 600;
+      font-family: var(--font-display);
+      cursor: pointer;
+      transition: all var(--duration-fast) ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .entity-type-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-hover);
+    }
+    .entity-type-btn.active {
+      background: var(--clm-primary-ghost);
+      color: var(--clm-primary-text);
+      box-shadow: var(--shadow-sm);
+    }
+    .entity-type-icon {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    /* ═══════════════════════════════════════
+       PROFIL VIEW (volle Seite)
+       ═══════════════════════════════════════ */
+    .profil-back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      font-family: var(--font-display);
+      cursor: pointer;
+      transition: all var(--duration-fast) ease;
+      margin-bottom: 24px;
+    }
+    .profil-back-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+
+    .profil-header-bar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      gap: 16px;
+    }
+    .profil-header-left {
+      flex: 1;
+      min-width: 0;
+    }
+    .profil-entity-name {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--text-primary);
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+    .profil-entity-tags {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .profil-entity-sub {
+      font-size: 12.5px;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+    }
+
+    .profil-detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .profil-detail-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+    }
+    .profil-detail-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-disabled);
+      margin-bottom: 4px;
+    }
+    .profil-detail-value {
+      font-size: 13px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      word-break: break-word;
+    }
+
+    .profil-section {
+      margin-bottom: 24px;
+    }
+    .profil-section-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-tertiary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .profil-section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-subtle);
+    }
+
+    .profil-persons-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 8px;
+    }
+    .profil-person-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all var(--duration-fast) ease;
+    }
+    .profil-person-card:hover {
+      border-color: var(--clm-coral);
+      background: var(--bg-hover);
+      transform: translateX(2px);
+    }
+    .profil-person-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--clm-coral-ghost);
+      color: var(--clm-coral);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .profil-person-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .profil-person-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .profil-person-role {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+    }
+
+    /* ═══════════════════════════════════════
+       NETZWERK-GRAPH (D3.js)
+       ═══════════════════════════════════════ */
+    .graph-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      min-height: 400px;
+      position: relative;
+      overflow: hidden;
+    }
+    .graph-container svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .graph-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      color: var(--text-disabled);
+      font-size: 13px;
+      font-family: var(--font-mono);
+    }
+    .graph-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      gap: 8px;
+    }
+    .graph-loading .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border-default);
+      border-top-color: var(--clm-primary);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    /* Graph-Tooltip */
+    .graph-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--text-primary);
+      box-shadow: var(--shadow-md);
+      opacity: 0;
+      transition: opacity var(--duration-fast) ease;
+      z-index: 10;
+      max-width: 260px;
+    }
+    .graph-tooltip.visible {
+      opacity: 1;
+    }
+    .graph-tooltip-name {
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .graph-tooltip-type {
+      font-size: 10.5px;
+      font-family: var(--font-mono);
+      color: var(--text-tertiary);
+    }
+
+    /* Graph-Knoten-Stile */
+    .graph-node { cursor: pointer; }
+    .graph-node:hover rect,
+    .graph-node:hover circle { filter: brightness(1.3); }
+    .graph-label {
+      font-family: var(--font-display);
+      font-size: 11px;
+      fill: var(--text-primary);
+      pointer-events: none;
+      text-anchor: middle;
+    }
+    .graph-edge-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      fill: var(--text-disabled);
+      pointer-events: none;
+      text-anchor: middle;
+    }
+    .graph-link {
+      stroke: var(--border-strong);
+      stroke-width: 1.2;
+      fill: none;
+    }
+
+    /* Responsive Profil */
+    @media (max-width: 1024px) {
+      .profil-detail-grid { grid-template-columns: 1fr 1fr; }
+      .profil-persons-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .profil-detail-grid { grid-template-columns: 1fr; }
+      .profil-entity-name { font-size: 20px; }
+    }
+
+    /* Sidebar-Profillink dynamisch */
+    .nav-item-profil {
+      display: none;
+    }
+    .nav-item-profil.visible {
+      display: flex;
+    }
   </style>
 </head>
 <body>
@@ -1464,6 +1773,10 @@
         <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></span>
         Suche
       </div>
+      <div class="nav-item nav-item-profil" id="nav-profil" data-view="profil" onclick="switchView('profil')">
+        <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+        <span id="nav-profil-label">Firmenprofil</span>
+      </div>
       <div class="nav-item" data-view="sources" onclick="switchView('sources')">
         <span class="nav-icon"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/></svg></span>
         Quellen
@@ -1531,16 +1844,29 @@
     <div id="view-search" class="view">
       <div class="page-header">
         <div class="page-header-left">
-          <h1 class="page-title">Firmensuche</h1>
+          <h1 class="page-title">Suche</h1>
           <p class="page-subtitle">Handelsregister, GLEIF, Insolvenzen — alle Quellen durchsuchen</p>
         </div>
       </div>
 
       <div class="search-hero">
+        <!-- Entity-Type Toggle -->
+        <div class="entity-type-toggle" id="entity-type-toggle">
+          <button class="entity-type-btn active" data-entity-type="" onclick="setEntityType(this, '')">
+            Alle
+          </button>
+          <button class="entity-type-btn" data-entity-type="firma" onclick="setEntityType(this, 'firma')">
+            <span class="entity-type-icon">◈</span> Firmen
+          </button>
+          <button class="entity-type-btn" data-entity-type="person" onclick="setEntityType(this, 'person')">
+            <span class="entity-type-icon">◉</span> Personen
+          </button>
+        </div>
+
         <div class="search-bar-container">
           <div class="search-input-wrap">
             <span class="search-icon-left"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg></span>
-            <input type="text" id="q" class="search-main-input" placeholder="Firmenname, Ort, Registernummer …" autocomplete="off">
+            <input type="text" id="q" class="search-main-input" placeholder="Firmenname, Personenname, Ort, Registernummer …" autocomplete="off">
             <div id="ac-dropdown" class="autocomplete-dropdown"></div>
           </div>
           <button class="btn btn-primary" onclick="doSearch()">
@@ -1602,19 +1928,54 @@
       <div id="apikeys-list" class="apikeys-list"></div>
     </div>
 
+    <!-- ═══ Firmenprofil (volle Seite) ═══ -->
+    <div id="view-profil" class="view">
+      <button class="profil-back-btn" onclick="navigateBackFromProfil()">
+        ← Zurück zur Suche
+      </button>
+
+      <div id="profil-view-header" class="profil-header-bar">
+        <!-- Wird dynamisch befüllt -->
+      </div>
+
+      <div id="profil-view-details">
+        <!-- Detail-Grid -->
+      </div>
+
+      <div id="profil-view-identifiers">
+        <!-- Identifier-Sektion -->
+      </div>
+
+      <div id="profil-view-names">
+        <!-- Frühere Namen -->
+      </div>
+
+      <div id="profil-view-persons">
+        <!-- Verbundene Personen -->
+      </div>
+
+      <!-- Netzwerk-Graph -->
+      <div id="profil-view-graph-section" class="profil-section" style="display:none">
+        <div class="profil-section-title">Netzwerk-Graph</div>
+        <div class="graph-container" id="graph-container">
+          <div class="graph-loading" id="graph-loading">
+            <div class="spinner"></div>
+            Lade Netzwerkdaten …
+          </div>
+          <div class="graph-tooltip" id="graph-tooltip">
+            <div class="graph-tooltip-name"></div>
+            <div class="graph-tooltip-type"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="profil-view-events">
+        <!-- Event-Timeline -->
+      </div>
+    </div>
+
   </div><!-- /main-content -->
 </div><!-- /app -->
-
-<!-- ═══ Profil Modal ═══ -->
-<div id="profil-modal" class="modal-overlay" onclick="if(event.target===this)closeProfil()">
-  <div class="modal">
-    <div class="modal-top">
-      <button class="modal-close" onclick="closeProfil()">✕</button>
-      <div id="profil-header"></div>
-    </div>
-    <div class="modal-body" id="profil-content"></div>
-  </div>
-</div>
 
 <!-- ═══ API-Key Dialog ═══ -->
 <div id="apikey-dialog" class="dialog-overlay" onclick="if(event.target===this)closeApiKeyDialog()">
@@ -1635,6 +1996,7 @@
 <!-- ═══ Toast ═══ -->
 <div id="copy-toast" class="copy-toast">Kopiert!</div>
 
+<script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
 // Firmen-Intelligence — Client-Logik
@@ -1644,6 +2006,9 @@ const API = '/api';
 let token = localStorage.getItem('fi_token');
 let currentUser = localStorage.getItem('fi_user');
 let searchOffset = 0;
+let currentEntityType = '';  // '', 'firma', 'person'
+let currentProfilId = null;  // Aktuell geladenes Profil
+let previousView = 'search'; // Wohin "Zurück" navigiert
 
 // ── Hilfsfunktionen ──
 function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
@@ -1748,6 +2113,12 @@ document.getElementById('login-email').addEventListener('keydown', e => {
 // NAVIGATION
 // ═══════════════════════════════════════
 function switchView(name) {
+  // Vorherigen View merken (für Zurück-Navigation)
+  const currentActive = document.querySelector('.view.active');
+  if (currentActive && currentActive.id !== 'view-profil') {
+    previousView = currentActive.id.replace('view-', '');
+  }
+
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   const view = document.getElementById(`view-${name}`);
   if (view) view.classList.add('active');
@@ -2028,11 +2399,28 @@ async function loadDashboard() {
   });
 })();
 
+// ── Entity-Type Toggle ──
+function setEntityType(btn, type) {
+  currentEntityType = type;
+  document.querySelectorAll('.entity-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Sofort neu suchen wenn bereits Ergebnisse da sind
+  const q = document.getElementById('q').value.trim();
+  if (q || document.getElementById('result-meta').style.display !== 'none') {
+    doSearch(0);
+  }
+}
+
 async function doSearch(offset = 0) {
   searchOffset = offset;
   const params = new URLSearchParams();
   const q = document.getElementById('q').value.trim();
   if (q) params.set('q', q);
+
+  // Entity-Type Filter
+  if (currentEntityType) {
+    params.set('entityType', currentEntityType);
+  }
 
   ['rechtsform', 'ort', 'bundesland', 'status'].forEach(f => {
     const el = document.getElementById(`f-${f}`);
@@ -2058,7 +2446,8 @@ async function doSearch(offset = 0) {
     const data = await res.json();
 
     resultMeta.style.display = 'flex';
-    resultMeta.innerHTML = `<span class="count-num">${fmt(data.total)}</span> Treffer${q ? ` für "${esc(q)}"` : ''}`;
+    const typeLabel = currentEntityType === 'firma' ? 'Firmen' : currentEntityType === 'person' ? 'Personen' : 'Treffer';
+    resultMeta.innerHTML = `<span class="count-num">${fmt(data.total)}</span> ${typeLabel}${q ? ` für "${esc(q)}"` : ''}`;
 
     if (data.results.length === 0) {
       resultsEl.innerHTML = `
@@ -2071,16 +2460,25 @@ async function doSearch(offset = 0) {
     }
 
     resultsEl.innerHTML = data.results.map(r => {
-      const d = r.data;
+      const d = r.data ?? {};
+      const isPerson = r.entity_type === 'person';
+      const entityIcon = isPerson ? '◉' : '◈';
+      const entityIconColor = isPerson ? 'var(--clm-coral)' : 'var(--clm-primary-text)';
       const statusCls = d.status === 'aktiv' ? 'badge-aktiv' : 'badge-removed';
       const register = [d.registerArt, d.registerNummer].filter(Boolean).join(' ');
+
+      // Personen zeigen Wohnort + Position, Firmen zeigen Sitz + Rechtsform
+      const ortLabel = isPerson ? (d.wohnort || d.sitz || '') : (d.sitz || '');
+      const typeLabel = isPerson ? (d.position || d.funktion || '') : (d.rechtsform || '');
+
       return `<div class="result-card" onclick="showProfil('${r.id}')">
+        <div style="font-size:16px;color:${entityIconColor};flex-shrink:0;width:24px;text-align:center;" title="${isPerson ? 'Person' : 'Firma'}">${entityIcon}</div>
         <div class="rc-main">
-          <div class="rc-name">${esc(r.name)}</div>
+          <div class="rc-name">${esc(r.name || r.canonical_name)}</div>
           <div class="rc-meta">
             ${register ? `<span class="rc-meta-item">${esc(register)}</span>` : ''}
-            ${d.sitz ? `<span class="rc-meta-item">${esc(d.sitz)}</span>` : ''}
-            ${d.rechtsform ? `<span class="badge badge-rechtsform">${esc(d.rechtsform)}</span>` : ''}
+            ${ortLabel ? `<span class="rc-meta-item">${esc(ortLabel)}</span>` : ''}
+            ${typeLabel ? `<span class="badge badge-rechtsform">${esc(typeLabel)}</span>` : ''}
             ${d.status ? `<span class="badge ${statusCls}">${esc(d.status)}</span>` : ''}
           </div>
         </div>
@@ -2105,111 +2503,422 @@ async function doSearch(offset = 0) {
 }
 
 // ═══════════════════════════════════════
-// FIRMEN-PROFIL MODAL
+// FIRMEN-PROFIL VIEW (volle Seite)
 // ═══════════════════════════════════════
 async function showProfil(id) {
-  const modal = document.getElementById('profil-modal');
-  modal.classList.add('open');
-  document.getElementById('profil-header').innerHTML = '<div class="skeleton" style="width:260px;height:22px"></div>';
-  document.getElementById('profil-content').innerHTML = '<div class="skeleton" style="width:100%;height:160px"></div>';
+  currentProfilId = id;
+
+  // Sidebar-Profil-Link sichtbar machen
+  const navProfil = document.getElementById('nav-profil');
+  navProfil.classList.add('visible');
+
+  // Zur Profil-View wechseln
+  switchView('profil');
+
+  // Skeleton-Loader für Header
+  document.getElementById('profil-view-header').innerHTML = `
+    <div class="profil-header-left">
+      <div class="skeleton" style="width:320px;height:28px;margin-bottom:10px"></div>
+      <div class="skeleton" style="width:200px;height:16px"></div>
+    </div>
+  `;
+  document.getElementById('profil-view-details').innerHTML = '';
+  document.getElementById('profil-view-identifiers').innerHTML = '';
+  document.getElementById('profil-view-names').innerHTML = '';
+  document.getElementById('profil-view-events').innerHTML = '';
+  document.getElementById('profil-view-persons').innerHTML = '';
+  document.getElementById('profil-view-graph-section').style.display = 'none';
 
   try {
     const res = await fetch(`${API}/entity/${id}`);
     const e = await res.json();
     const d = e.data ?? {};
+    const isPerson = e.entity_type === 'person';
+
+    // Sidebar-Label aktualisieren
+    document.getElementById('nav-profil-label').textContent =
+      isPerson ? 'Personenprofil' : 'Firmenprofil';
 
     // Header
     const register = [d.registerArt, d.registerNummer].filter(Boolean).join(' ');
-    document.getElementById('profil-header').innerHTML = `
-      <div class="modal-entity-name">${esc(e.canonical_name)}</div>
-      <div class="modal-entity-sub">
-        ${d.rechtsform ? `<span class="badge badge-rechtsform" style="margin-right:6px">${esc(d.rechtsform)}</span>` : ''}
-        ${register ? `${esc(register)} · ` : ''}${esc(d.gericht ?? '')}
-        ${d.status ? ` · <span class="badge badge-${d.status === 'aktiv' ? 'aktiv' : 'removed'}">${esc(d.status)}</span>` : ''}
+    document.getElementById('profil-view-header').innerHTML = `
+      <div class="profil-header-left">
+        <div class="profil-entity-name">${esc(e.canonical_name)}</div>
+        <div class="profil-entity-tags">
+          ${d.rechtsform ? `<span class="badge badge-rechtsform">${esc(d.rechtsform)}</span>` : ''}
+          ${d.status ? `<span class="badge badge-${d.status === 'aktiv' ? 'aktiv' : 'removed'}">${esc(d.status)}</span>` : ''}
+          ${isPerson ? '<span class="badge" style="background:var(--clm-coral-ghost);color:var(--clm-coral);">Person</span>' : ''}
+        </div>
+        ${register || d.gericht ? `<div class="profil-entity-sub" style="margin-top:8px">
+          ${register ? esc(register) : ''}${register && d.gericht ? ' · ' : ''}${d.gericht ? esc(d.gericht) : ''}
+        </div>` : ''}
       </div>
     `;
 
-    // Body
-    let html = '';
-
-    // Detail-Felder
-    const fields = [
+    // Detail-Grid
+    const fields = isPerson ? [
+      ['Name', e.canonical_name],
+      ['Wohnort', d.wohnort || d.sitz],
+      ['Geburtsdatum', d.geburtsdatum],
+      ['Position', d.position || d.funktion],
+      ['Status', d.status],
+    ].filter(([, v]) => v) : [
       ['Rechtsform', d.rechtsform],
       ['Registergericht', d.gericht],
       ['Register', register],
       ['Sitz', d.sitz],
       ['Bundesland', d.bundesland],
       ['Adresse', d.adresse],
+      ['Stammkapital', d.stammkapital],
       ['Status', d.status],
       ['LEI', d.lei],
       ['Gegenstand', d.gegenstand],
     ].filter(([, v]) => v);
 
     if (fields.length > 0) {
-      html += '<div class="detail-grid">';
-      fields.forEach(([label, value]) => {
-        html += `<div class="detail-item">
-          <div class="detail-label">${esc(label)}</div>
-          <div class="detail-value">${esc(String(value))}</div>
-        </div>`;
-      });
-      html += '</div>';
-    }
-
-    // Frühere Namen
-    if (d.fruehere_namen?.length) {
-      html += `<div class="modal-section">
-        <div class="modal-section-title">Frühere Namen</div>`;
-      d.fruehere_namen.forEach(n => {
-        html += `<div style="font-size:12.5px;font-family:var(--font-mono);color:var(--text-secondary);padding:3px 0;">— ${esc(n)}</div>`;
-      });
-      html += '</div>';
+      document.getElementById('profil-view-details').innerHTML = `
+        <div class="profil-detail-grid">
+          ${fields.map(([label, value]) => `
+            <div class="profil-detail-card">
+              <div class="profil-detail-label">${esc(label)}</div>
+              <div class="profil-detail-value">${esc(String(value))}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
     }
 
     // Identifier
     const ids = (e.identifiers ?? []).filter(i => i.type);
     if (ids.length) {
-      html += `<div class="modal-section">
-        <div class="modal-section-title">Identifier (${ids.length})</div>`;
-      ids.forEach(i => {
-        html += `<div class="identifier-row">
-          <span class="identifier-type">${esc(i.type)}</span>
-          <span class="identifier-value">${esc(i.value)}</span>
-          ${i.qualifier ? `<span class="identifier-qualifier">(${esc(i.qualifier)})</span>` : ''}
-        </div>`;
-      });
-      html += '</div>';
+      document.getElementById('profil-view-identifiers').innerHTML = `
+        <div class="profil-section">
+          <div class="profil-section-title">Identifier (${ids.length})</div>
+          ${ids.map(i => `
+            <div class="identifier-row">
+              <span class="identifier-type">${esc(i.type)}</span>
+              <span class="identifier-value">${esc(i.value)}</span>
+              ${i.qualifier ? `<span class="identifier-qualifier">(${esc(i.qualifier)})</span>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // Frühere Namen
+    if (d.fruehere_namen?.length) {
+      document.getElementById('profil-view-names').innerHTML = `
+        <div class="profil-section">
+          <div class="profil-section-title">Frühere Namen</div>
+          ${d.fruehere_namen.map(n =>
+            `<div style="font-size:12.5px;font-family:var(--font-mono);color:var(--text-secondary);padding:3px 0;">— ${esc(n)}</div>`
+          ).join('')}
+        </div>
+      `;
+    }
+
+    // Verbundene Personen (aus der Entity-Response, falls vorhanden)
+    const persons = e.related_persons ?? e.persons ?? [];
+    if (persons.length) {
+      document.getElementById('profil-view-persons').innerHTML = `
+        <div class="profil-section">
+          <div class="profil-section-title">Verbundene Personen (${persons.length})</div>
+          <div class="profil-persons-grid">
+            ${persons.map(p => `
+              <div class="profil-person-card" onclick="${p.id ? `showProfil('${p.id}')` : ''}">
+                <div class="profil-person-icon">◉</div>
+                <div class="profil-person-info">
+                  <div class="profil-person-name">${esc(p.name || p.canonical_name || '—')}</div>
+                  <div class="profil-person-role">${esc(p.role || p.relation_type || p.funktion || '')}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
     }
 
     // Event-Timeline
     const events = e.events ?? [];
     if (events.length) {
-      html += `<div class="modal-section">
-        <div class="modal-section-title">Event-Timeline (${events.length})</div>
-        <div class="event-timeline">`;
-      events.slice(0, 20).forEach(ev => {
-        html += `<div class="event-item">
+      let evHtml = `
+        <div class="profil-section">
+          <div class="profil-section-title">Event-Timeline (${events.length})</div>
+          <div class="event-timeline">`;
+      events.slice(0, 30).forEach(ev => {
+        evHtml += `<div class="event-item">
           <span class="event-type-badge">${esc(ev.event_type)}</span>
           <span class="event-date">${esc(ev.event_date ?? '—')}</span>
           <span class="event-source">${esc(ev.source)}</span>
         </div>`;
       });
-      if (events.length > 20) {
-        html += `<div style="font-size:11px;color:var(--text-disabled);padding:8px 0;font-family:var(--font-mono);">… und ${events.length - 20} weitere Events</div>`;
+      if (events.length > 30) {
+        evHtml += `<div style="font-size:11px;color:var(--text-disabled);padding:8px 0;font-family:var(--font-mono);">… und ${events.length - 30} weitere Events</div>`;
       }
-      html += '</div></div>';
+      evHtml += '</div></div>';
+      document.getElementById('profil-view-events').innerHTML = evHtml;
     }
 
-    document.getElementById('profil-content').innerHTML = html;
+    // Netzwerk-Graph laden
+    loadNetworkGraph(id);
 
-  } catch (e) {
-    document.getElementById('profil-content').innerHTML =
-      '<div style="color:var(--danger);padding:12px;font-size:13px;">Fehler beim Laden der Firmendaten.</div>';
+  } catch (err) {
+    console.error('Profil-Fehler:', err);
+    document.getElementById('profil-view-header').innerHTML =
+      '<div style="color:var(--danger);padding:12px;font-size:13px;">Fehler beim Laden der Profildaten.</div>';
   }
 }
 
+function navigateBackFromProfil() {
+  switchView(previousView || 'search');
+}
+
+// Legacy — Profil schließen (navigiert zurück)
 function closeProfil() {
-  document.getElementById('profil-modal').classList.remove('open');
+  navigateBackFromProfil();
+}
+
+// ═══════════════════════════════════════
+// NETZWERK-GRAPH (D3.js force-directed)
+// ═══════════════════════════════════════
+async function loadNetworkGraph(entityId) {
+  const section = document.getElementById('profil-view-graph-section');
+  const container = document.getElementById('graph-container');
+  const loadingEl = document.getElementById('graph-loading');
+  const tooltipEl = document.getElementById('graph-tooltip');
+
+  // Vorherige SVG entfernen
+  container.querySelectorAll('svg').forEach(s => s.remove());
+  loadingEl.style.display = 'flex';
+  section.style.display = 'block';
+
+  try {
+    const res = await fetch(`${API}/entity/${entityId}/network?depth=2`);
+    if (!res.ok) {
+      loadingEl.style.display = 'none';
+      container.innerHTML = '<div class="graph-empty">Keine Vernetzungsdaten verfügbar</div>';
+      container.appendChild(tooltipEl);
+      return;
+    }
+    const graphData = await res.json();
+
+    if (!graphData.nodes || graphData.nodes.length === 0) {
+      loadingEl.style.display = 'none';
+      container.innerHTML = '<div class="graph-empty">Keine Vernetzungsdaten verfügbar</div>';
+      container.appendChild(tooltipEl);
+      return;
+    }
+
+    loadingEl.style.display = 'none';
+    renderForceGraph(graphData, entityId, container, tooltipEl);
+
+  } catch (err) {
+    console.error('Graph-Fehler:', err);
+    loadingEl.style.display = 'none';
+    container.innerHTML = '<div class="graph-empty">Keine Vernetzungsdaten verfügbar</div>';
+    container.appendChild(tooltipEl);
+  }
+}
+
+function renderForceGraph(graphData, centerEntityId, container, tooltipEl) {
+  const width = container.clientWidth || 800;
+  const height = Math.max(400, container.clientHeight || 500);
+
+  // D3 prüfen
+  if (typeof d3 === 'undefined') {
+    container.innerHTML = '<div class="graph-empty">D3.js konnte nicht geladen werden</div>';
+    container.appendChild(tooltipEl);
+    return;
+  }
+
+  const svg = d3.select(container)
+    .append('svg')
+    .attr('viewBox', `0 0 ${width} ${height}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet');
+
+  // Defs für Pfeile
+  svg.append('defs').append('marker')
+    .attr('id', 'arrowhead')
+    .attr('viewBox', '0 -5 10 10')
+    .attr('refX', 25)
+    .attr('refY', 0)
+    .attr('markerWidth', 6)
+    .attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M0,-5L10,0L0,5')
+    .attr('fill', 'rgba(255,255,255,0.12)');
+
+  // Nodes und Edges aufbereiten
+  const nodes = graphData.nodes.map(n => ({
+    ...n,
+    isCenter: n.entityId === centerEntityId || n.id === centerEntityId,
+  }));
+
+  const edges = (graphData.edges || []).map(e => ({
+    source: e.from,
+    target: e.to,
+    relationType: e.relationType || e.relation_type || '',
+    properties: e.properties || {},
+  }));
+
+  // Node-ID-Map für Kanten-Auflösung
+  const nodeMap = new Map();
+  nodes.forEach(n => {
+    const nId = n.entityId || n.id;
+    nodeMap.set(nId, n);
+  });
+
+  // Kanten filtern (nur wenn beide Knoten existieren)
+  const validEdges = edges.filter(e => {
+    const sId = typeof e.source === 'object' ? (e.source.entityId || e.source.id) : e.source;
+    const tId = typeof e.target === 'object' ? (e.target.entityId || e.target.id) : e.target;
+    return nodeMap.has(sId) && nodeMap.has(tId);
+  });
+
+  // Force-Simulation
+  const simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(validEdges)
+      .id(d => d.entityId || d.id)
+      .distance(120)
+      .strength(0.5)
+    )
+    .force('charge', d3.forceManyBody().strength(-300))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collision', d3.forceCollide().radius(40));
+
+  // Gruppe für Zoom
+  const g = svg.append('g');
+
+  // Zoom-Verhalten
+  const zoom = d3.zoom()
+    .scaleExtent([0.3, 3])
+    .on('zoom', (event) => {
+      g.attr('transform', event.transform);
+    });
+  svg.call(zoom);
+
+  // Kanten zeichnen
+  const link = g.append('g')
+    .selectAll('line')
+    .data(validEdges)
+    .join('line')
+    .attr('class', 'graph-link')
+    .attr('marker-end', 'url(#arrowhead)');
+
+  // Kanten-Labels
+  const linkLabel = g.append('g')
+    .selectAll('text')
+    .data(validEdges)
+    .join('text')
+    .attr('class', 'graph-edge-label')
+    .text(d => {
+      const label = d.relationType || '';
+      return label.replace(/_/g, ' ').replace(/von$/, '').trim();
+    });
+
+  // Knoten-Gruppen
+  const node = g.append('g')
+    .selectAll('g')
+    .data(nodes)
+    .join('g')
+    .attr('class', 'graph-node')
+    .call(d3.drag()
+      .on('start', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+      })
+      .on('drag', (event, d) => {
+        d.fx = event.x;
+        d.fy = event.y;
+      })
+      .on('end', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+      })
+    );
+
+  // Knoten-Formen zeichnen
+  node.each(function(d) {
+    const el = d3.select(this);
+    const isFirma = d.type === 'firma';
+    const isCenter = d.isCenter;
+    const size = isCenter ? 22 : 16;
+
+    if (isFirma) {
+      // Rechteck für Firmen
+      el.append('rect')
+        .attr('x', -size)
+        .attr('y', -size * 0.7)
+        .attr('width', size * 2)
+        .attr('height', size * 1.4)
+        .attr('rx', 4)
+        .attr('fill', isCenter ? '#9458f5' : 'rgba(148,88,245,0.25)')
+        .attr('stroke', isCenter ? '#b78bff' : 'rgba(148,88,245,0.5)')
+        .attr('stroke-width', isCenter ? 2 : 1);
+    } else {
+      // Kreis für Personen
+      el.append('circle')
+        .attr('r', size)
+        .attr('fill', isCenter ? '#f28c82' : 'rgba(242,140,130,0.25)')
+        .attr('stroke', isCenter ? '#f5a89f' : 'rgba(242,140,130,0.5)')
+        .attr('stroke-width', isCenter ? 2 : 1);
+    }
+  });
+
+  // Knoten-Labels
+  node.append('text')
+    .attr('class', 'graph-label')
+    .attr('dy', d => {
+      const size = d.isCenter ? 22 : 16;
+      return d.type === 'firma' ? size * 0.7 + 16 : size + 16;
+    })
+    .text(d => {
+      const name = d.name || '';
+      return name.length > 20 ? name.slice(0, 18) + '…' : name;
+    });
+
+  // Hover-Tooltip
+  node.on('mouseover', (event, d) => {
+    tooltipEl.querySelector('.graph-tooltip-name').textContent = d.name || '—';
+    tooltipEl.querySelector('.graph-tooltip-type').textContent =
+      (d.type === 'firma' ? 'Firma' : 'Person') + (d.isCenter ? ' (Zentral)' : '');
+    tooltipEl.classList.add('visible');
+  })
+  .on('mousemove', (event) => {
+    const rect = container.getBoundingClientRect();
+    tooltipEl.style.left = (event.clientX - rect.left + 12) + 'px';
+    tooltipEl.style.top = (event.clientY - rect.top - 10) + 'px';
+  })
+  .on('mouseout', () => {
+    tooltipEl.classList.remove('visible');
+  });
+
+  // Klick navigiert zum Profil
+  node.on('click', (event, d) => {
+    event.stopPropagation();
+    const targetId = d.entityId || d.id;
+    if (targetId && targetId !== centerEntityId) {
+      showProfil(targetId);
+    }
+  });
+
+  // Simulation-Tick
+  simulation.on('tick', () => {
+    link
+      .attr('x1', d => d.source.x)
+      .attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x)
+      .attr('y2', d => d.target.y);
+
+    linkLabel
+      .attr('x', d => (d.source.x + d.target.x) / 2)
+      .attr('y', d => (d.source.y + d.target.y) / 2 - 6);
+
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
 }
 
 // ═══════════════════════════════════════
