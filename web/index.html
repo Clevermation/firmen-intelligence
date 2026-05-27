@@ -1,12 +1,245 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Firmen-Intelligence</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firmen-Intelligence</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; line-height: 1.5; }
+    a { color: #9458f5; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    header { padding: 24px 0; border-bottom: 1px solid #21262d; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; }
+    header h1 { font-size: 24px; font-weight: 600; }
+    header .badge { background: #9458f5; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+
+    .search-box { display: flex; gap: 8px; margin-bottom: 16px; }
+    .search-box input { flex: 1; padding: 10px 14px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 15px; }
+    .search-box input:focus { outline: none; border-color: #9458f5; }
+    .search-box button { padding: 10px 20px; background: #9458f5; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; }
+    .search-box button:hover { background: #7c3aed; }
+
+    .filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    .filters select, .filters input { padding: 6px 10px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 13px; }
+
+    .stats-bar { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .stat { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px; min-width: 140px; }
+    .stat .label { font-size: 12px; color: #8b949e; text-transform: uppercase; }
+    .stat .value { font-size: 24px; font-weight: 600; color: #9458f5; }
+
+    .results { list-style: none; }
+    .result-item { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s; }
+    .result-item:hover { border-color: #9458f5; }
+    .result-item .name { font-size: 16px; font-weight: 600; }
+    .result-item .meta { font-size: 13px; color: #8b949e; margin-top: 4px; display: flex; gap: 16px; flex-wrap: wrap; }
+    .result-item .meta span { display: inline-flex; align-items: center; gap: 4px; }
+    .result-item .tag { display: inline-block; background: #21262d; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
+    .result-item .status-aktiv { color: #3fb950; }
+    .result-item .status-geloescht { color: #f85149; }
+
+    .total { font-size: 14px; color: #8b949e; margin-bottom: 12px; }
+    .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+    .pagination button { padding: 6px 14px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; cursor: pointer; }
+    .pagination button:hover { border-color: #9458f5; }
+    .pagination button:disabled { opacity: 0.3; cursor: default; }
+
+    #profil-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 100; overflow-y: auto; }
+    #profil-modal .modal-content { max-width: 800px; margin: 40px auto; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; }
+    #profil-modal .close { float: right; font-size: 24px; cursor: pointer; color: #8b949e; }
+    #profil-modal h2 { font-size: 22px; margin-bottom: 16px; }
+    #profil-modal .field { margin-bottom: 8px; }
+    #profil-modal .field .label { font-size: 12px; color: #8b949e; text-transform: uppercase; }
+    #profil-modal .field .value { font-size: 15px; }
+
+    .loading { text-align: center; padding: 40px; color: #8b949e; }
+  </style>
 </head>
 <body>
-    <h1>Firmen-Intelligence</h1>
-    <p>Web-UI wird noch gebaut.</p>
+  <div class="container">
+    <header>
+      <h1>Firmen-Intelligence</h1>
+      <span class="badge">Clevermation</span>
+    </header>
+
+    <div id="stats-bar" class="stats-bar"></div>
+
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="Firmenname, Ort, Schlagwort..." autofocus>
+      <button onclick="doSearch()">Suchen</button>
+    </div>
+
+    <div class="filters">
+      <select id="filter-rechtsform">
+        <option value="">Alle Rechtsformen</option>
+        <option value="GmbH">GmbH</option>
+        <option value="AG">AG</option>
+        <option value="UG">UG</option>
+        <option value="e.V.">e.V.</option>
+        <option value="KG">KG</option>
+        <option value="OHG">OHG</option>
+      </select>
+      <input type="text" id="filter-ort" placeholder="Ort...">
+      <input type="text" id="filter-bundesland" placeholder="Bundesland...">
+      <select id="filter-status">
+        <option value="">Alle Status</option>
+        <option value="aktiv">Aktiv</option>
+        <option value="gelöscht">Gelöscht</option>
+        <option value="in Liquidation">In Liquidation</option>
+      </select>
+    </div>
+
+    <div id="total" class="total"></div>
+    <ul id="results" class="results"></ul>
+    <div id="pagination" class="pagination"></div>
+  </div>
+
+  <div id="profil-modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <div id="profil-content"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api';
+    let currentOffset = 0;
+    const PAGE_SIZE = 25;
+
+    async function loadStats() {
+      try {
+        const res = await fetch(`${API}/stats`);
+        const stats = await res.json();
+        const bar = document.getElementById('stats-bar');
+        const firmen = stats.entities?.firma ?? 0;
+        const personen = stats.entities?.person ?? 0;
+        bar.innerHTML = `
+          <div class="stat"><div class="label">Firmen</div><div class="value">${firmen.toLocaleString('de-DE')}</div></div>
+          <div class="stat"><div class="label">Personen</div><div class="value">${personen.toLocaleString('de-DE')}</div></div>
+        `;
+      } catch {}
+    }
+
+    async function doSearch(offset = 0) {
+      currentOffset = offset;
+      const q = document.getElementById('search-input').value;
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      const rf = document.getElementById('filter-rechtsform').value;
+      if (rf) params.set('rechtsform', rf);
+      const ort = document.getElementById('filter-ort').value;
+      if (ort) params.set('ort', ort);
+      const bl = document.getElementById('filter-bundesland').value;
+      if (bl) params.set('bundesland', bl);
+      const st = document.getElementById('filter-status').value;
+      if (st) params.set('status', st);
+      params.set('limit', PAGE_SIZE.toString());
+      params.set('offset', offset.toString());
+
+      document.getElementById('results').innerHTML = '<li class="loading">Suche...</li>';
+
+      const res = await fetch(`${API}/search?${params}`);
+      const data = await res.json();
+
+      document.getElementById('total').textContent = `${data.total.toLocaleString('de-DE')} Treffer`;
+
+      const list = document.getElementById('results');
+      if (data.results.length === 0) {
+        list.innerHTML = '<li class="loading">Keine Treffer gefunden.</li>';
+        return;
+      }
+
+      list.innerHTML = data.results.map(r => {
+        const d = r.data;
+        const statusClass = d.status === 'aktiv' ? 'status-aktiv' : d.status === 'gelöscht' ? 'status-geloescht' : '';
+        return `<li class="result-item" onclick="showProfil('${r.id}')">
+          <div class="name">${esc(r.name)}</div>
+          <div class="meta">
+            <span>${d.registerArt ?? ''} ${d.registerNummer ?? ''}</span>
+            <span>${esc(d.sitz ?? '')}</span>
+            <span class="tag">${esc(d.rechtsform ?? '')}</span>
+            <span class="${statusClass}">${esc(d.status ?? '')}</span>
+          </div>
+        </li>`;
+      }).join('');
+
+      // Pagination
+      const pg = document.getElementById('pagination');
+      const hasPrev = offset > 0;
+      const hasNext = offset + PAGE_SIZE < data.total;
+      pg.innerHTML = `
+        <button ${hasPrev ? '' : 'disabled'} onclick="doSearch(${offset - PAGE_SIZE})">Zurück</button>
+        <button ${hasNext ? '' : 'disabled'} onclick="doSearch(${offset + PAGE_SIZE})">Weiter</button>
+      `;
+    }
+
+    async function showProfil(id) {
+      const modal = document.getElementById('profil-modal');
+      const content = document.getElementById('profil-content');
+      modal.style.display = 'block';
+      content.innerHTML = '<div class="loading">Laden...</div>';
+
+      const res = await fetch(`${API}/entity/${id}`);
+      const e = await res.json();
+      const d = e.data ?? {};
+
+      let html = `<h2>${esc(e.canonical_name)}</h2>`;
+      const fields = [
+        ['Rechtsform', d.rechtsform],
+        ['Register', `${d.registerArt ?? ''} ${d.registerNummer ?? ''}`],
+        ['Gericht', d.gericht],
+        ['Sitz', d.sitz],
+        ['Bundesland', d.bundesland],
+        ['Adresse', d.adresse],
+        ['Status', d.status],
+        ['LEI', d.lei],
+      ];
+      for (const [label, value] of fields) {
+        if (value) html += `<div class="field"><div class="label">${label}</div><div class="value">${esc(String(value))}</div></div>`;
+      }
+
+      if (d.fruehere_namen?.length) {
+        html += `<div class="field"><div class="label">Frühere Namen</div><div class="value">${d.fruehere_namen.map(n => esc(n)).join('<br>')}</div></div>`;
+      }
+
+      const ids = e.identifiers?.filter(i => i.type) ?? [];
+      if (ids.length) {
+        html += `<div class="field" style="margin-top:16px"><div class="label">Identifiers</div><div class="value">${ids.map(i => `${i.type}: ${i.value}${i.qualifier ? ' (' + esc(i.qualifier) + ')' : ''}`).join('<br>')}</div></div>`;
+      }
+
+      const events = e.events ?? [];
+      if (events.length) {
+        html += `<div class="field" style="margin-top:16px"><div class="label">Events (${events.length})</div><div class="value" style="font-size:13px">`;
+        for (const ev of events.slice(0, 20)) {
+          html += `<div>${ev.event_date ?? '?'} | ${ev.event_type} | ${ev.source}</div>`;
+        }
+        html += '</div></div>';
+      }
+
+      content.innerHTML = html;
+    }
+
+    function closeModal() {
+      document.getElementById('profil-modal').style.display = 'none';
+    }
+
+    function esc(s) {
+      const div = document.createElement('div');
+      div.textContent = s ?? '';
+      return div.innerHTML;
+    }
+
+    document.getElementById('search-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSearch();
+    });
+
+    document.getElementById('profil-modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('profil-modal')) closeModal();
+    });
+
+    loadStats();
+    doSearch();
+  </script>
 </body>
 </html>
