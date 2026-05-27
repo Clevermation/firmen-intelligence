@@ -1,4 +1,4 @@
-# Firmen-Intelligence — Masterplan
+# Clevermation Intelligence — Masterplan
 
 > Deutsche Firmendaten-Plattform à la Palantir: Alle Unternehmen, ihre Vernetzung, ihre Historie — aus öffentlichen Quellen, sauber strukturiert, AI-ready.
 
@@ -520,7 +520,7 @@ JSON-Responses. Kein Auth im PoC — später API-Key oder JWT.
 ## 8. Projektstruktur
 
 ```
-firmen-intelligence/
+clevermation-intelligence/
 ├── src/
 │   ├── db/
 │   │   ├── schema.sql              # PostgreSQL + AGE Schema

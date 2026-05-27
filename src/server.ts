@@ -403,5 +403,5 @@ Bun.serve({
 });
 
 console.log(
-  `\n  ⬡  Firmen-Intelligence Server\n  ⬡  Port: ${PORT}\n  ⬡  URL:  http://localhost:${PORT}\n`
+  `\n  ⬡  Clevermation Intelligence Server\n  ⬡  Port: ${PORT}\n  ⬡  URL:  http://localhost:${PORT}\n`
 );
