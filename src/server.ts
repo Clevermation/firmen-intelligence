@@ -100,6 +100,12 @@ Bun.serve({
         if (firmenCount > 100000) {
           return jsonResponse({ message: "Import bereits ausgeführt", firmen: firmenCount });
         }
+        const running = (stats as any).lastImports?.some(
+          (i: any) => i.status === "running" && i.source?.includes("offeneregister")
+        );
+        if (running) {
+          return jsonResponse({ message: "Import läuft bereits" });
+        }
         importOffeneRegister().catch(console.error);
         return jsonResponse({ message: "Import gestartet, läuft im Hintergrund" });
       },

@@ -30,17 +30,21 @@ export async function importOffeneRegister() {
     `INSERT INTO import_runs (source, status) VALUES ('offeneregister-server', 'running')`
   );
 
-  const response = await fetch(DOWNLOAD_URL);
-  if (!response.ok) throw new Error(`Download fehlgeschlagen: ${response.status}`);
-
-  // Dekompress via bzcat
   const tmpBz2 = "/tmp/or_download.jsonl.bz2";
   const tmpJsonl = "/tmp/or_download.jsonl";
-  await Bun.write(tmpBz2, response);
+
+  // Download via curl (robuster als fetch für große Dateien)
+  const download = Bun.spawn(
+    ["curl", "-L", "-f", "--retry", "3", "--connect-timeout", "30", "-o", tmpBz2, DOWNLOAD_URL],
+    { stdout: "inherit", stderr: "inherit" }
+  );
+  const dlExit = await download.exited;
+  if (dlExit !== 0) throw new Error(`Download fehlgeschlagen (Exit ${dlExit})`);
   console.log("[Server-Import] Download abgeschlossen, dekomprimiere...");
 
   const decompress = Bun.spawn(["bzcat", tmpBz2], { stdout: Bun.file(tmpJsonl) });
-  await decompress.exited;
+  const decExit = await decompress.exited;
+  if (decExit !== 0) throw new Error(`Dekompression fehlgeschlagen (Exit ${decExit})`);
   console.log("[Server-Import] Dekompression fertig, starte Import...");
 
   const reader = Bun.file(tmpJsonl).stream().getReader();
