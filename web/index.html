@@ -1797,19 +1797,19 @@ async function doLogin() {
   btn.disabled = true;
 
   try {
-    const res = await fetch(`${API}/auth/login`, {
+    const res = await fetch(`${API}/auth/sign-in/email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password: pw })
     });
     const data = await res.json();
-    if (!res.ok || !data.token) {
-      errEl.textContent = data.error || 'Anmeldung fehlgeschlagen';
+    if (!res.ok || (!data.token && !data.user)) {
+      errEl.textContent = data.message || data.error || 'Anmeldung fehlgeschlagen';
       errEl.style.display = 'block';
       return;
     }
     token = data.token;
-    currentUser = data.email || email;
+    currentUser = data.user?.email || email;
     localStorage.setItem('fi_token', token);
     localStorage.setItem('fi_user', currentUser);
     showApp();
