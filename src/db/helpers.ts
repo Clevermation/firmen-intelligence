@@ -1,7 +1,12 @@
 import { getDb } from "./connection";
 
 export function escapeString(s: string): string {
-  return s.replace(/'/g, "''").replace(/\\/g, "\\\\");
+  return s.replace(/'/g, "''");
+}
+
+export function escapeJsonForSql(data: Record<string, unknown>): string {
+  const json = JSON.stringify(data);
+  return json.replace(/'/g, "''");
 }
 
 export async function insertEntity(
