@@ -4,8 +4,12 @@ import { getNetwork } from "./queries/network";
 import { importOffeneRegister } from "./importers/offeneregister-fast-server";
 import { ensureSchema } from "./db/connection";
 
-// DB-Schema sicherstellen beim Start
-await ensureSchema();
+// DB-Schema sicherstellen beim Start (optional, Schema sollte schon existieren)
+try {
+  await ensureSchema();
+} catch (err) {
+  console.warn("[Schema] Schema-Initialisierung fehlgeschlagen (ignoriert):", err instanceof Error ? err.message : err);
+}
 
 const PORT = parseInt(process.env.PORT ?? "3000");
 
