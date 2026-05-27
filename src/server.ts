@@ -2,14 +2,8 @@ import index from "../web/index.html";
 import { searchEntities, getEntityById, getStats } from "./queries/search";
 import { getNetwork } from "./queries/network";
 import { importOffeneRegister } from "./importers/offeneregister-fast-server";
-import { ensureSchema } from "./db/connection";
-
-// DB-Schema sicherstellen beim Start (optional, Schema sollte schon existieren)
-try {
-  await ensureSchema();
-} catch (err) {
-  console.warn("[Schema] Schema-Initialisierung fehlgeschlagen (ignoriert):", err instanceof Error ? err.message : err);
-}
+// ensureSchema() ist in db/connection.ts verfügbar, wird aber nicht beim
+// Server-Start aufgerufen — das Schema wird durch schema-init im Compose erstellt.
 
 const PORT = parseInt(process.env.PORT ?? "3000");
 
