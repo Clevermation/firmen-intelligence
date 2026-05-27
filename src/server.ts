@@ -118,8 +118,23 @@ Bun.serve({
           return jsonResponse({ message: "Import läuft bereits" });
         }
         importOffeneRegister().catch(console.error);
-        return jsonResponse({ message: "Import gestartet, läuft im Hintergrund" });
+        return jsonResponse({ message: "Import gestartet (Streaming-Modus), läuft im Hintergrund" });
       },
+    },
+
+    "/api/import/status": async () => {
+      const db = (await import("./db/connection")).getDb();
+      const runs = await db.unsafe(`
+        SELECT id, source, status, started_at, finished_at, stats, error
+        FROM import_runs ORDER BY started_at DESC LIMIT 5
+      `);
+      const entityCount = await db.unsafe(
+        `SELECT count(*) as cnt FROM entities WHERE entity_type = 'firma'`
+      );
+      return jsonResponse({
+        firmenCount: parseInt(entityCount[0].cnt as string, 10),
+        imports: runs,
+      });
     },
   },
 

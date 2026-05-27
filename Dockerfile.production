@@ -1,6 +1,6 @@
 FROM oven/bun:1
 
-RUN apt-get update -qq && apt-get install -y -qq git bzip2 postgresql-client && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -qq && apt-get install -y -qq git curl bzip2 postgresql-client && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 RUN git clone https://github.com/Clevermation/firmen-intelligence.git /app
