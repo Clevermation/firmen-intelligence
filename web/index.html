@@ -3,243 +3,522 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Firmen-Intelligence</title>
+  <title>Firmen-Intelligence — Clevermation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg: #0a0b0f;
+      --bg-elevated: #12131a;
+      --bg-surface: #181920;
+      --bg-hover: #1e1f2a;
+      --border: #252636;
+      --border-focus: #9458f5;
+      --text: #e2e4ea;
+      --text-muted: #6b6d7b;
+      --text-dim: #44465a;
+      --accent: #9458f5;
+      --accent-glow: rgba(148, 88, 245, 0.15);
+      --accent-text: #b78bff;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --sidebar-w: 240px;
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e1e4e8; line-height: 1.5; }
-    a { color: #9458f5; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); line-height: 1.55; min-height: 100vh; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
-    header { padding: 24px 0; border-bottom: 1px solid #21262d; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; }
-    header h1 { font-size: 24px; font-weight: 600; }
-    header .badge { background: #9458f5; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 500; }
+    /* ── Login ── */
+    #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); position: relative; overflow: hidden; }
+    #login-screen::before { content: ''; position: absolute; width: 600px; height: 600px; background: radial-gradient(circle, var(--accent-glow), transparent 70%); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+    .login-box { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 40px; width: 380px; position: relative; z-index: 1; }
+    .login-box .logo { font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; font-family: 'DM Mono', monospace; }
+    .login-box h1 { font-size: 22px; font-weight: 700; margin-bottom: 32px; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .field input { width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 14px; font-family: 'DM Mono', monospace; transition: border-color 0.2s; }
+    .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 20px; border: none; border-radius: var(--radius); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+    .btn-primary { background: var(--accent); color: #fff; width: 100%; }
+    .btn-primary:hover { background: #7c3aed; transform: translateY(-1px); }
+    .btn-sm { padding: 6px 14px; font-size: 12px; }
+    .btn-ghost { background: transparent; color: var(--accent-text); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--accent); background: var(--accent-glow); }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--border); }
+    .btn-danger:hover { border-color: var(--danger); background: rgba(248,113,113,0.1); }
+    .login-error { color: var(--danger); font-size: 13px; margin-bottom: 12px; display: none; }
 
-    .search-box { display: flex; gap: 8px; margin-bottom: 16px; }
-    .search-box input { flex: 1; padding: 10px 14px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 15px; }
-    .search-box input:focus { outline: none; border-color: #9458f5; }
-    .search-box button { padding: 10px 20px; background: #9458f5; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; }
-    .search-box button:hover { background: #7c3aed; }
+    /* ── App Layout ── */
+    #app { display: none; min-height: 100vh; }
+    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: var(--sidebar-w); background: var(--bg-elevated); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 50; }
+    .sidebar-header { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
+    .sidebar-header .brand { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); }
+    .sidebar-header .title { font-size: 16px; font-weight: 700; margin-top: 2px; }
+    .sidebar-nav { flex: 1; padding: 12px 10px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: var(--radius); color: var(--text-muted); font-size: 13.5px; font-weight: 500; cursor: pointer; transition: all 0.15s; margin-bottom: 2px; }
+    .nav-item:hover { background: var(--bg-hover); color: var(--text); }
+    .nav-item.active { background: var(--accent-glow); color: var(--accent-text); }
+    .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+    .sidebar-footer { padding: 14px 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-dim); display: flex; align-items: center; justify-content: space-between; }
+    .sidebar-footer .user { color: var(--text-muted); font-family: 'DM Mono', monospace; font-size: 11px; }
+    .sidebar-footer .logout { cursor: pointer; color: var(--text-muted); font-size: 11px; }
+    .sidebar-footer .logout:hover { color: var(--danger); }
 
-    .filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-    .filters select, .filters input { padding: 6px 10px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 13px; }
+    .main { margin-left: var(--sidebar-w); padding: 28px 36px; }
+    .page-title { font-size: 24px; font-weight: 700; margin-bottom: 24px; }
 
-    .stats-bar { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-    .stat { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px 16px; min-width: 140px; }
-    .stat .label { font-size: 12px; color: #8b949e; text-transform: uppercase; }
-    .stat .value { font-size: 24px; font-weight: 600; color: #9458f5; }
+    /* ── Views ── */
+    .view { display: none; }
+    .view.active { display: block; }
 
-    .results { list-style: none; }
-    .result-item { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s; }
-    .result-item:hover { border-color: #9458f5; }
-    .result-item .name { font-size: 16px; font-weight: 600; }
-    .result-item .meta { font-size: 13px; color: #8b949e; margin-top: 4px; display: flex; gap: 16px; flex-wrap: wrap; }
-    .result-item .meta span { display: inline-flex; align-items: center; gap: 4px; }
-    .result-item .tag { display: inline-block; background: #21262d; padding: 1px 8px; border-radius: 4px; font-size: 12px; }
-    .result-item .status-aktiv { color: #3fb950; }
-    .result-item .status-geloescht { color: #f85149; }
+    /* ── Stats Grid ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 28px; }
+    .stat-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; }
+    .stat-card .stat-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 6px; }
+    .stat-card .stat-value { font-size: 28px; font-weight: 800; font-family: 'DM Mono', monospace; color: var(--accent-text); }
+    .stat-card .stat-sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; font-family: 'DM Mono', monospace; }
 
-    .total { font-size: 14px; color: #8b949e; margin-bottom: 12px; }
-    .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
-    .pagination button { padding: 6px 14px; background: #21262d; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; cursor: pointer; }
-    .pagination button:hover { border-color: #9458f5; }
-    .pagination button:disabled { opacity: 0.3; cursor: default; }
+    /* ── Table ── */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+    .data-table td { padding: 12px 14px; font-size: 13px; border-bottom: 1px solid var(--border); }
+    .data-table tr:hover td { background: var(--bg-hover); }
+    .data-table .mono { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-muted); }
 
-    #profil-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 100; overflow-y: auto; }
-    #profil-modal .modal-content { max-width: 800px; margin: 40px auto; background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; }
-    #profil-modal .close { float: right; font-size: 24px; cursor: pointer; color: #8b949e; }
-    #profil-modal h2 { font-size: 22px; margin-bottom: 16px; }
-    #profil-modal .field { margin-bottom: 8px; }
-    #profil-modal .field .label { font-size: 12px; color: #8b949e; text-transform: uppercase; }
-    #profil-modal .field .value { font-size: 15px; }
+    /* ── Search ── */
+    .search-container { margin-bottom: 20px; }
+    .search-bar { display: flex; gap: 8px; margin-bottom: 12px; }
+    .search-bar input { flex: 1; padding: 12px 16px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 15px; font-family: 'Plus Jakarta Sans', sans-serif; }
+    .search-bar input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .filters-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filters-row select, .filters-row input { padding: 7px 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 12px; font-family: inherit; }
+    .filters-row select:focus, .filters-row input:focus { outline: none; border-color: var(--accent); }
+    .result-count { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; font-family: 'DM Mono', monospace; }
 
-    .loading { text-align: center; padding: 40px; color: #8b949e; }
+    /* ── Result Cards ── */
+    .result-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 6px; cursor: pointer; transition: all 0.15s; }
+    .result-card:hover { border-color: var(--accent); background: var(--bg-hover); transform: translateX(2px); }
+    .result-card .rc-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .result-card .rc-meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; font-family: 'DM Mono', monospace; }
+    .tag-aktiv { background: rgba(52,211,153,0.12); color: var(--success); }
+    .tag-removed, .tag-geloescht { background: rgba(248,113,113,0.12); color: var(--danger); }
+    .tag-rechtsform { background: var(--accent-glow); color: var(--accent-text); }
+
+    /* ── Modal ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; overflow-y: auto; backdrop-filter: blur(4px); }
+    .modal-overlay.open { display: flex; justify-content: center; padding: 40px 20px; }
+    .modal { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 720px; max-width: 100%; padding: 32px; position: relative; align-self: flex-start; }
+    .modal-close { position: absolute; top: 16px; right: 20px; font-size: 20px; color: var(--text-muted); cursor: pointer; background: none; border: none; }
+    .modal-close:hover { color: var(--text); }
+    .modal h2 { font-size: 20px; font-weight: 700; margin-bottom: 20px; padding-right: 32px; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .detail-item { }
+    .detail-item .dl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 2px; }
+    .detail-item .dv { font-size: 14px; font-family: 'DM Mono', monospace; }
+
+    /* ── Source Cards ── */
+    .source-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 10px; display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; }
+    .source-icon { width: 42px; height: 42px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; font-size: 20px; background: var(--accent-glow); }
+    .source-info h3 { font-size: 14px; font-weight: 600; }
+    .source-info p { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-family: 'DM Mono', monospace; }
+    .source-status { text-align: right; }
+    .source-status .badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; font-family: 'DM Mono', monospace; }
+    .badge-ok { background: rgba(52,211,153,0.12); color: var(--success); }
+    .badge-running { background: rgba(251,191,36,0.12); color: var(--warning); }
+    .badge-idle { background: var(--bg-hover); color: var(--text-dim); }
+
+    /* ── API Key ── */
+    .key-row { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
+    .key-row .key-value { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text-muted); }
+    .key-row .key-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+    .key-row .key-meta { font-size: 11px; color: var(--text-dim); font-family: 'DM Mono', monospace; }
+
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .section-header h2 { font-size: 16px; font-weight: 600; }
+
+    /* ── Activity Feed ── */
+    .activity-feed { }
+    .activity-item { padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; gap: 12px; align-items: flex-start; }
+    .activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 6px; flex-shrink: 0; }
+    .activity-text { font-size: 13px; }
+    .activity-text .at-time { color: var(--text-dim); font-family: 'DM Mono', monospace; font-size: 11px; }
+
+    /* ── Pagination ── */
+    .pagination { display: flex; gap: 6px; justify-content: center; margin-top: 16px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 16px; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>Firmen-Intelligence</h1>
-      <span class="badge">Clevermation</span>
-    </header>
 
-    <div id="stats-bar" class="stats-bar"></div>
-
-    <div class="search-box">
-      <input type="text" id="search-input" placeholder="Firmenname, Ort, Schlagwort..." autofocus>
-      <button onclick="doSearch()">Suchen</button>
+<!-- Login Screen -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="logo">Clevermation</div>
+    <h1>Firmen-Intelligence</h1>
+    <div id="login-error" class="login-error"></div>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="name@clevermation.com" autocomplete="email">
     </div>
-
-    <div class="filters">
-      <select id="filter-rechtsform">
-        <option value="">Alle Rechtsformen</option>
-        <option value="GmbH">GmbH</option>
-        <option value="AG">AG</option>
-        <option value="UG">UG</option>
-        <option value="e.V.">e.V.</option>
-        <option value="KG">KG</option>
-        <option value="OHG">OHG</option>
-      </select>
-      <input type="text" id="filter-ort" placeholder="Ort...">
-      <input type="text" id="filter-bundesland" placeholder="Bundesland...">
-      <select id="filter-status">
-        <option value="">Alle Status</option>
-        <option value="aktiv">Aktiv</option>
-        <option value="gelöscht">Gelöscht</option>
-        <option value="in Liquidation">In Liquidation</option>
-      </select>
+    <div class="field">
+      <label>Passwort</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
     </div>
-
-    <div id="total" class="total"></div>
-    <ul id="results" class="results"></ul>
-    <div id="pagination" class="pagination"></div>
+    <button class="btn btn-primary" onclick="doLogin()" style="margin-top:8px">Anmelden</button>
   </div>
+</div>
 
-  <div id="profil-modal">
-    <div class="modal-content">
-      <span class="close" onclick="closeModal()">&times;</span>
-      <div id="profil-content"></div>
+<!-- App -->
+<div id="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">Clevermation</div>
+      <div class="title">Firmen-Intel</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')">
+        <span class="icon">◈</span> Dashboard
+      </div>
+      <div class="nav-item" data-view="search" onclick="switchView('search')">
+        <span class="icon">⌕</span> Suche
+      </div>
+      <div class="nav-item" data-view="sources" onclick="switchView('sources')">
+        <span class="icon">⟐</span> Quellen
+      </div>
+      <div class="nav-item" data-view="apikeys" onclick="switchView('apikeys')">
+        <span class="icon">⚿</span> API-Keys
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="user" id="sidebar-user">—</span>
+      <span class="logout" onclick="doLogout()">Abmelden</span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <!-- Dashboard -->
+    <div id="view-dashboard" class="view active">
+      <h1 class="page-title">Dashboard</h1>
+      <div id="stats-grid" class="stats-grid"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <div class="section-header"><h2>Top Bundesländer</h2></div>
+          <div id="top-bundeslaender"></div>
+        </div>
+        <div>
+          <div class="section-header"><h2>Letzte Imports</h2></div>
+          <div id="last-imports"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div id="view-search" class="view">
+      <h1 class="page-title">Firmensuche</h1>
+      <div class="search-container">
+        <div class="search-bar">
+          <input type="text" id="q" placeholder="Firmenname, Ort, Schlagwort …" autofocus>
+          <button class="btn btn-primary" onclick="doSearch()">Suchen</button>
+        </div>
+        <div class="filters-row">
+          <select id="f-rechtsform"><option value="">Rechtsform</option><option>GmbH</option><option>AG</option><option>UG</option><option>e.V.</option><option>KG</option><option>OHG</option></select>
+          <input type="text" id="f-ort" placeholder="Ort">
+          <input type="text" id="f-bundesland" placeholder="Bundesland">
+          <select id="f-status"><option value="">Status</option><option value="aktiv">Aktiv</option><option value="removed">Gelöscht</option></select>
+        </div>
+      </div>
+      <div id="result-count" class="result-count"></div>
+      <div id="results"></div>
+      <div id="pagination" class="pagination"></div>
+    </div>
+
+    <!-- Sources -->
+    <div id="view-sources" class="view">
+      <h1 class="page-title">Datenquellen</h1>
+      <div id="sources-list"></div>
+    </div>
+
+    <!-- API Keys -->
+    <div id="view-apikeys" class="view">
+      <div class="section-header">
+        <h1 class="page-title" style="margin-bottom:0">API-Keys</h1>
+        <button class="btn btn-ghost btn-sm" onclick="createApiKey()">+ Neuer Key</button>
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">API-Keys für programmatischen Zugriff auf die Firmen-Intelligence API.</p>
+      <div id="apikeys-list"></div>
     </div>
   </div>
+</div>
 
-  <script>
-    const API = '/api';
-    let currentOffset = 0;
-    const PAGE_SIZE = 25;
+<!-- Profil Modal -->
+<div id="profil-modal" class="modal-overlay" onclick="if(event.target===this)closeProfil()">
+  <div class="modal">
+    <button class="modal-close" onclick="closeProfil()">✕</button>
+    <div id="profil-content"></div>
+  </div>
+</div>
 
-    async function loadStats() {
-      try {
-        const res = await fetch(`${API}/stats`);
-        const stats = await res.json();
-        const bar = document.getElementById('stats-bar');
-        const firmen = stats.entities?.firma ?? 0;
-        const personen = stats.entities?.person ?? 0;
-        bar.innerHTML = `
-          <div class="stat"><div class="label">Firmen</div><div class="value">${firmen.toLocaleString('de-DE')}</div></div>
-          <div class="stat"><div class="label">Personen</div><div class="value">${personen.toLocaleString('de-DE')}</div></div>
-        `;
-      } catch {}
-    }
+<script>
+const API = '/api';
+let token = localStorage.getItem('fi_token');
+let currentUser = localStorage.getItem('fi_user');
+let searchOffset = 0;
 
-    async function doSearch(offset = 0) {
-      currentOffset = offset;
-      const q = document.getElementById('search-input').value;
-      const params = new URLSearchParams();
-      if (q) params.set('q', q);
-      const rf = document.getElementById('filter-rechtsform').value;
-      if (rf) params.set('rechtsform', rf);
-      const ort = document.getElementById('filter-ort').value;
-      if (ort) params.set('ort', ort);
-      const bl = document.getElementById('filter-bundesland').value;
-      if (bl) params.set('bundesland', bl);
-      const st = document.getElementById('filter-status').value;
-      if (st) params.set('status', st);
-      params.set('limit', PAGE_SIZE.toString());
-      params.set('offset', offset.toString());
+function esc(s) { const d=document.createElement('div'); d.textContent=s??''; return d.innerHTML; }
+function fmt(n) { return (n??0).toLocaleString('de-DE'); }
 
-      document.getElementById('results').innerHTML = '<li class="loading">Suche...</li>';
+// ── Auth ──
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const pw = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
 
-      const res = await fetch(`${API}/search?${params}`);
-      const data = await res.json();
-
-      document.getElementById('total').textContent = `${data.total.toLocaleString('de-DE')} Treffer`;
-
-      const list = document.getElementById('results');
-      if (data.results.length === 0) {
-        list.innerHTML = '<li class="loading">Keine Treffer gefunden.</li>';
-        return;
-      }
-
-      list.innerHTML = data.results.map(r => {
-        const d = r.data;
-        const statusClass = d.status === 'aktiv' ? 'status-aktiv' : d.status === 'gelöscht' ? 'status-geloescht' : '';
-        return `<li class="result-item" onclick="showProfil('${r.id}')">
-          <div class="name">${esc(r.name)}</div>
-          <div class="meta">
-            <span>${d.registerArt ?? ''} ${d.registerNummer ?? ''}</span>
-            <span>${esc(d.sitz ?? '')}</span>
-            <span class="tag">${esc(d.rechtsform ?? '')}</span>
-            <span class="${statusClass}">${esc(d.status ?? '')}</span>
-          </div>
-        </li>`;
-      }).join('');
-
-      // Pagination
-      const pg = document.getElementById('pagination');
-      const hasPrev = offset > 0;
-      const hasNext = offset + PAGE_SIZE < data.total;
-      pg.innerHTML = `
-        <button ${hasPrev ? '' : 'disabled'} onclick="doSearch(${offset - PAGE_SIZE})">Zurück</button>
-        <button ${hasNext ? '' : 'disabled'} onclick="doSearch(${offset + PAGE_SIZE})">Weiter</button>
-      `;
-    }
-
-    async function showProfil(id) {
-      const modal = document.getElementById('profil-modal');
-      const content = document.getElementById('profil-content');
-      modal.style.display = 'block';
-      content.innerHTML = '<div class="loading">Laden...</div>';
-
-      const res = await fetch(`${API}/entity/${id}`);
-      const e = await res.json();
-      const d = e.data ?? {};
-
-      let html = `<h2>${esc(e.canonical_name)}</h2>`;
-      const fields = [
-        ['Rechtsform', d.rechtsform],
-        ['Register', `${d.registerArt ?? ''} ${d.registerNummer ?? ''}`],
-        ['Gericht', d.gericht],
-        ['Sitz', d.sitz],
-        ['Bundesland', d.bundesland],
-        ['Adresse', d.adresse],
-        ['Status', d.status],
-        ['LEI', d.lei],
-      ];
-      for (const [label, value] of fields) {
-        if (value) html += `<div class="field"><div class="label">${label}</div><div class="value">${esc(String(value))}</div></div>`;
-      }
-
-      if (d.fruehere_namen?.length) {
-        html += `<div class="field"><div class="label">Frühere Namen</div><div class="value">${d.fruehere_namen.map(n => esc(n)).join('<br>')}</div></div>`;
-      }
-
-      const ids = e.identifiers?.filter(i => i.type) ?? [];
-      if (ids.length) {
-        html += `<div class="field" style="margin-top:16px"><div class="label">Identifiers</div><div class="value">${ids.map(i => `${i.type}: ${i.value}${i.qualifier ? ' (' + esc(i.qualifier) + ')' : ''}`).join('<br>')}</div></div>`;
-      }
-
-      const events = e.events ?? [];
-      if (events.length) {
-        html += `<div class="field" style="margin-top:16px"><div class="label">Events (${events.length})</div><div class="value" style="font-size:13px">`;
-        for (const ev of events.slice(0, 20)) {
-          html += `<div>${ev.event_date ?? '?'} | ${ev.event_type} | ${ev.source}</div>`;
-        }
-        html += '</div></div>';
-      }
-
-      content.innerHTML = html;
-    }
-
-    function closeModal() {
-      document.getElementById('profil-modal').style.display = 'none';
-    }
-
-    function esc(s) {
-      const div = document.createElement('div');
-      div.textContent = s ?? '';
-      return div.innerHTML;
-    }
-
-    document.getElementById('search-input').addEventListener('keydown', e => {
-      if (e.key === 'Enter') doSearch();
+  try {
+    const res = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pw })
     });
+    const data = await res.json();
+    if (!res.ok || !data.token) {
+      errEl.textContent = data.error || 'Anmeldung fehlgeschlagen';
+      errEl.style.display = 'block';
+      return;
+    }
+    token = data.token;
+    currentUser = data.email || email;
+    localStorage.setItem('fi_token', token);
+    localStorage.setItem('fi_user', currentUser);
+    showApp();
+  } catch(e) {
+    errEl.textContent = 'Verbindungsfehler';
+    errEl.style.display = 'block';
+  }
+}
 
-    document.getElementById('profil-modal').addEventListener('click', e => {
-      if (e.target === document.getElementById('profil-modal')) closeModal();
-    });
+function doLogout() {
+  token = null;
+  currentUser = null;
+  localStorage.removeItem('fi_token');
+  localStorage.removeItem('fi_user');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
 
-    loadStats();
-    doSearch();
-  </script>
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('sidebar-user').textContent = currentUser || '—';
+  loadDashboard();
+}
+
+document.getElementById('login-password').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('q').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
+
+// ── Views ──
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view===name));
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'sources') loadSources();
+  if (name === 'apikeys') loadApiKeys();
+  if (name === 'search') document.getElementById('q').focus();
+}
+
+// ── Dashboard ──
+async function loadDashboard() {
+  try {
+    const res = await fetch(`${API}/stats`);
+    const s = await res.json();
+    const firmen = s.entities?.firma ?? 0;
+    const personen = s.entities?.person ?? 0;
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card"><div class="stat-label">Firmen</div><div class="stat-value">${fmt(firmen)}</div><div class="stat-sub">Entities</div></div>
+      <div class="stat-card"><div class="stat-label">Personen</div><div class="stat-value">${fmt(personen)}</div><div class="stat-sub">Entities</div></div>
+      <div class="stat-card"><div class="stat-label">Rechtsformen</div><div class="stat-value">${s.topRechtsformen?.length??0}</div><div class="stat-sub">Kategorien</div></div>
+      <div class="stat-card"><div class="stat-label">Bundesländer</div><div class="stat-value">${s.topBundeslaender?.length??0}</div><div class="stat-sub">Abgedeckt</div></div>
+    `;
+    document.getElementById('top-bundeslaender').innerHTML = (s.topBundeslaender??[]).slice(0,8).map(b =>
+      `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+        <span>${esc(b.bundesland||'—')}</span>
+        <span class="mono">${fmt(b.count)}</span>
+      </div>`
+    ).join('');
+    document.getElementById('last-imports').innerHTML = (s.lastImports??[]).map(i => {
+      const badge = i.status==='completed'?'badge-ok':i.status==='running'?'badge-running':'badge-idle';
+      return `<div class="activity-item">
+        <div class="activity-dot" style="background:${i.status==='completed'?'var(--success)':i.status==='running'?'var(--warning)':'var(--text-dim)'}"></div>
+        <div class="activity-text">
+          <strong>${esc(i.source)}</strong> — <span class="badge ${badge}">${i.status}</span>
+          <div class="at-time">${new Date(i.started_at).toLocaleString('de-DE')}</div>
+        </div>
+      </div>`;
+    }).join('') || '<div style="color:var(--text-dim);font-size:13px;">Keine Imports vorhanden.</div>';
+  } catch(e) { console.error(e); }
+}
+
+// ── Search ──
+async function doSearch(offset=0) {
+  searchOffset = offset;
+  const params = new URLSearchParams();
+  const q = document.getElementById('q').value;
+  if(q) params.set('q', q);
+  ['rechtsform','ort','bundesland','status'].forEach(f => {
+    const v = document.getElementById(`f-${f}`).value;
+    if(v) params.set(f, v);
+  });
+  params.set('limit', '25');
+  params.set('offset', offset.toString());
+
+  document.getElementById('results').innerHTML = '<div style="color:var(--text-muted);padding:20px;">Suche …</div>';
+  try {
+    const res = await fetch(`${API}/search?${params}`);
+    const data = await res.json();
+    document.getElementById('result-count').textContent = `${fmt(data.total)} Treffer`;
+    if(data.results.length===0) {
+      document.getElementById('results').innerHTML = '<div style="color:var(--text-dim);padding:20px;">Keine Treffer.</div>';
+      document.getElementById('pagination').innerHTML = '';
+      return;
+    }
+    document.getElementById('results').innerHTML = data.results.map(r => {
+      const d = r.data;
+      const statusCls = d.status==='aktiv'?'tag-aktiv':'tag-removed';
+      return `<div class="result-card" onclick="showProfil('${r.id}')">
+        <div class="rc-name">${esc(r.name)}</div>
+        <div class="rc-meta">
+          <span>${d.registerArt??''} ${d.registerNummer??''}</span>
+          <span>${esc(d.sitz??'')}</span>
+          ${d.rechtsform?`<span class="tag tag-rechtsform">${esc(d.rechtsform)}</span>`:''}
+          <span class="tag ${statusCls}">${esc(d.status??'')}</span>
+        </div>
+      </div>`;
+    }).join('');
+    const hasPrev = offset > 0;
+    const hasNext = offset + 25 < data.total;
+    document.getElementById('pagination').innerHTML =
+      `<button class="btn btn-ghost btn-sm" ${hasPrev?'':`disabled style="opacity:0.3"`} onclick="doSearch(${offset-25})">← Zurück</button>
+       <button class="btn btn-ghost btn-sm" ${hasNext?'':`disabled style="opacity:0.3"`} onclick="doSearch(${offset+25})">Weiter →</button>`;
+  } catch(e) { document.getElementById('results').innerHTML = '<div style="color:var(--danger)">Fehler bei der Suche.</div>'; }
+}
+
+// ── Profil ──
+async function showProfil(id) {
+  document.getElementById('profil-modal').classList.add('open');
+  document.getElementById('profil-content').innerHTML = '<div style="color:var(--text-muted)">Laden …</div>';
+  try {
+    const res = await fetch(`${API}/entity/${id}`);
+    const e = await res.json();
+    const d = e.data ?? {};
+    const fields = [
+      ['Rechtsform', d.rechtsform], ['Register', `${d.registerArt??''} ${d.registerNummer??''}`],
+      ['Gericht', d.gericht], ['Sitz', d.sitz], ['Bundesland', d.bundesland],
+      ['Adresse', d.adresse], ['Status', d.status], ['LEI', d.lei]
+    ].filter(([,v])=>v);
+    let html = `<h2>${esc(e.canonical_name)}</h2><div class="detail-grid">`;
+    fields.forEach(([l,v]) => { html += `<div class="detail-item"><div class="dl">${l}</div><div class="dv">${esc(String(v))}</div></div>`; });
+    html += '</div>';
+    if(d.fruehere_namen?.length) {
+      html += `<div style="margin-bottom:16px"><div class="dl" style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px">Frühere Namen</div>`;
+      d.fruehere_namen.forEach(n => { html += `<div style="font-size:13px;color:var(--text-muted);font-family:'DM Mono',monospace;margin-bottom:2px">— ${esc(n)}</div>`; });
+      html += '</div>';
+    }
+    const ids = (e.identifiers??[]).filter(i=>i.type);
+    if(ids.length) {
+      html += `<div style="margin-bottom:16px"><div class="dl" style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px">Identifier</div>`;
+      ids.forEach(i => { html += `<div style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text-muted)">${esc(i.type)}: ${esc(i.value)}${i.qualifier?' ('+esc(i.qualifier)+')':''}</div>`; });
+      html += '</div>';
+    }
+    const events = e.events??[];
+    if(events.length) {
+      html += `<div><div class="dl" style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:6px">Events (${events.length})</div>`;
+      events.slice(0,15).forEach(ev => {
+        html += `<div class="activity-item"><div class="activity-dot"></div><div class="activity-text">${esc(ev.event_type)} <span class="at-time">${ev.event_date??'?'} · ${esc(ev.source)}</span></div></div>`;
+      });
+      html += '</div>';
+    }
+    document.getElementById('profil-content').innerHTML = html;
+  } catch(e) { document.getElementById('profil-content').innerHTML = '<div style="color:var(--danger)">Fehler beim Laden.</div>'; }
+}
+function closeProfil() { document.getElementById('profil-modal').classList.remove('open'); }
+
+// ── Sources ──
+async function loadSources() {
+  const sources = [
+    { name: 'OffeneRegister', desc: 'Handelsregister-Bulk (JSONL)', icon: '◉', key: 'offeneregister' },
+    { name: 'GLEIF', desc: 'LEI + Ownership-Daten', icon: '◎', key: 'gleif' },
+    { name: 'Registerbekanntmachungen', desc: 'Tägliche HR-Updates', icon: '◈', key: 'registerbekanntmachungen' },
+    { name: 'Insolvenzbekanntmachungen', desc: 'Insolvenz-Tracking', icon: '◇', key: 'insolvenzbekanntmachungen' },
+    { name: 'Handelsregister (Live)', desc: 'On-Demand Detail-Scraper', icon: '◆', key: 'handelsregister' },
+  ];
+  let stats = {};
+  try { const r = await fetch(`${API}/stats`); stats = await r.json(); } catch {}
+  const imports = stats.lastImports ?? [];
+
+  document.getElementById('sources-list').innerHTML = sources.map(s => {
+    const imp = imports.find(i => i.source?.includes(s.key));
+    const status = imp?.status ?? 'idle';
+    const badgeCls = status==='completed'?'badge-ok':status==='running'?'badge-running':'badge-idle';
+    const lastRun = imp ? new Date(imp.started_at).toLocaleString('de-DE') : '—';
+    return `<div class="source-card">
+      <div class="source-icon">${s.icon}</div>
+      <div class="source-info"><h3>${s.name}</h3><p>${s.desc} · Letzter Import: ${lastRun}</p></div>
+      <div class="source-status"><span class="badge ${badgeCls}">${status}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ── API Keys ──
+let apiKeys = JSON.parse(localStorage.getItem('fi_apikeys') || '[]');
+function loadApiKeys() {
+  if(apiKeys.length === 0) {
+    document.getElementById('apikeys-list').innerHTML = '<div style="color:var(--text-dim);font-size:13px;">Noch keine API-Keys erstellt.</div>';
+    return;
+  }
+  document.getElementById('apikeys-list').innerHTML = apiKeys.map((k,i) =>
+    `<div class="key-row">
+      <div><div class="key-name">${esc(k.name)}</div><div class="key-meta">Erstellt: ${k.created}</div></div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="key-value">${k.key.substring(0,12)}…</span>
+        <button class="btn btn-ghost btn-sm" onclick="copyKey(${i})">Kopieren</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteKey(${i})">Löschen</button>
+      </div>
+    </div>`
+  ).join('');
+}
+function createApiKey() {
+  const name = prompt('Name für den API-Key:');
+  if(!name) return;
+  const key = 'fi_' + crypto.randomUUID().replace(/-/g, '');
+  apiKeys.push({ name, key, created: new Date().toLocaleDateString('de-DE') });
+  localStorage.setItem('fi_apikeys', JSON.stringify(apiKeys));
+  loadApiKeys();
+  alert(`API-Key erstellt:\n\n${key}\n\nBitte sicher aufbewahren!`);
+}
+function copyKey(i) { navigator.clipboard.writeText(apiKeys[i].key); }
+function deleteKey(i) {
+  if(!confirm(`API-Key "${apiKeys[i].name}" wirklich löschen?`)) return;
+  apiKeys.splice(i, 1);
+  localStorage.setItem('fi_apikeys', JSON.stringify(apiKeys));
+  loadApiKeys();
+}
+
+// ── Init ──
+if(token) { showApp(); } else { document.getElementById('login-screen').style.display = 'flex'; }
+</script>
 </body>
 </html>

@@ -5,11 +5,26 @@ import { importOffeneRegister } from "./importers/offeneregister-fast-server";
 
 const PORT = parseInt(process.env.PORT ?? "3000");
 
+// Simples User-System (Passwort-Hash via Bun.password)
+const USERS: Record<string, { passwordHash: string; name: string }> = {};
+const TOKENS = new Map<string, { email: string; name: string; createdAt: number }>();
+
+async function initUsers() {
+  const defaultEmail = process.env.ADMIN_EMAIL ?? "developer@clevermation.com";
+  const defaultPw = process.env.ADMIN_PASSWORD ?? "4!HyUHytvjtqM2YLeqRp";
+  USERS[defaultEmail] = {
+    passwordHash: await Bun.password.hash(defaultPw),
+    name: "Developer",
+  };
+  console.log(`Auth: User ${defaultEmail} initialisiert`);
+}
+await initUsers();
+
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
 }
 
@@ -22,7 +37,28 @@ Bun.serve({
   routes: {
     "/": index,
 
-    "/api/health": () => jsonResponse({ status: "ok", timestamp: new Date().toISOString() }),
+    "/api/health": () =>
+      jsonResponse({ status: "ok", timestamp: new Date().toISOString() }),
+
+    "/api/auth/login": {
+      POST: async (req) => {
+        const body = (await req.json()) as { email?: string; password?: string };
+        if (!body.email || !body.password) {
+          return jsonResponse({ error: "Email und Passwort erforderlich" }, 400);
+        }
+        const user = USERS[body.email];
+        if (!user) {
+          return jsonResponse({ error: "Ungültige Zugangsdaten" }, 401);
+        }
+        const valid = await Bun.password.verify(body.password, user.passwordHash);
+        if (!valid) {
+          return jsonResponse({ error: "Ungültige Zugangsdaten" }, 401);
+        }
+        const token = `fi_${crypto.randomUUID().replace(/-/g, "")}`;
+        TOKENS.set(token, { email: body.email, name: user.name, createdAt: Date.now() });
+        return jsonResponse({ token, email: body.email, name: user.name });
+      },
+    },
 
     "/api/search": async (req) => {
       const url = new URL(req.url);
