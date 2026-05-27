@@ -252,54 +252,6 @@ Bun.serve({
       return jsonResponse(stats);
     },
 
-    // ── Import: Identifier erstellen ──
-    "/api/import/identifiers": {
-      POST: async () => {
-        const db = (await import("./db/connection")).getDb();
-        console.log("[Import] Erstelle Identifier...");
-        await db.unsafe(`
-          INSERT INTO entity_identifiers (entity_id, id_type, id_value, qualifier, source)
-          SELECT e.id, 'register_nr',
-                 (e.data->>'registerArt') || ' ' || (e.data->>'registerNummer'),
-                 e.data->>'gericht', 'offeneregister'
-          FROM entities e
-          WHERE e.entity_type = 'firma'
-            AND e.data->>'registerNummer' IS NOT NULL AND e.data->>'registerNummer' != ''
-            AND e.data->>'gericht' IS NOT NULL AND e.data->>'gericht' != ''
-          ON CONFLICT (id_type, id_value, qualifier) DO NOTHING
-        `);
-        await db.unsafe(`
-          INSERT INTO entity_identifiers (entity_id, id_type, id_value, qualifier, source)
-          SELECT e.id, 'or_company_number', e.data->>'or_company_number', NULL, 'offeneregister'
-          FROM entities e
-          WHERE e.entity_type = 'firma'
-            AND e.data->>'or_company_number' IS NOT NULL AND e.data->>'or_company_number' != ''
-          ON CONFLICT (id_type, id_value, qualifier) DO NOTHING
-        `);
-        const count = await db.unsafe("SELECT count(*) as c FROM entity_identifiers");
-        console.log("[Import] Identifier erstellt:", count[0].c);
-        return jsonResponse({ message: "Identifier erstellt", count: parseInt(count[0].c as string) });
-      },
-    },
-
-    // ── Import: Autocomplete-Index ──
-    "/api/import/autocomplete-index": {
-      POST: async () => {
-        const db = (await import("./db/connection")).getDb();
-        await db.unsafe("CREATE INDEX IF NOT EXISTS idx_entities_name_prefix ON entities (lower(canonical_name) text_pattern_ops)");
-        return jsonResponse({ message: "Autocomplete-Index erstellt" });
-      },
-    },
-
-    // ── Import: Personen aus OffeneRegister extrahieren ──
-    "/api/import/persons": {
-      POST: async () => {
-        const { importPersons } = await import("./importers/persons-server");
-        importPersons().catch(console.error);
-        return jsonResponse({ message: "Personen-Import gestartet" });
-      },
-    },
-
     // ── Admin: Hängende Imports bereinigen ──
     "/api/admin/cleanup-imports": {
       POST: async () => {
@@ -337,42 +289,48 @@ Bun.serve({
       },
     },
 
-    // ── Import: Identifier für alle Firmen erstellen ──
+    // ── Import: Identifier für alle Firmen erstellen (läuft im Hintergrund) ──
     "/api/import/identifiers": {
       POST: async () => {
-        const db = (await import("./db/connection")).getDb();
+        // Asynchron im Hintergrund ausführen (dauert bei 5M+ Firmen mehrere Minuten)
+        (async () => {
+          const db = (await import("./db/connection")).getDb();
+          try {
+            console.log("[Import] Identifier-Import gestartet...");
 
-        console.log("[Import] Identifier-Import gestartet...");
+            // Register-Nr Identifier
+            await db.unsafe(`
+              INSERT INTO entity_identifiers (entity_id, id_type, id_value, qualifier, source)
+              SELECT e.id, 'register_nr',
+                     (e.data->>'registerArt') || ' ' || (e.data->>'registerNummer'),
+                     e.data->>'gericht', 'offeneregister'
+              FROM entities e
+              WHERE e.entity_type = 'firma'
+                AND e.data->>'registerNummer' IS NOT NULL AND e.data->>'registerNummer' != ''
+                AND e.data->>'gericht' IS NOT NULL AND e.data->>'gericht' != ''
+              ON CONFLICT (id_type, id_value, qualifier) DO NOTHING
+            `);
+            console.log("[Import] Register-Nr Identifier fertig");
 
-        // Register-Nr Identifier
-        const regResult = await db.unsafe(`
-          INSERT INTO entity_identifiers (entity_id, id_type, id_value, qualifier, source)
-          SELECT e.id, 'register_nr',
-                 (e.data->>'registerArt') || ' ' || (e.data->>'registerNummer'),
-                 e.data->>'gericht', 'offeneregister'
-          FROM entities e
-          WHERE e.entity_type = 'firma'
-            AND e.data->>'registerNummer' IS NOT NULL AND e.data->>'registerNummer' != ''
-            AND e.data->>'gericht' IS NOT NULL AND e.data->>'gericht' != ''
-          ON CONFLICT (id_type, id_value, qualifier) DO NOTHING
-        `);
-        console.log(`[Import] Register-Nr Identifier: ${regResult.count} eingefügt`);
+            // OR-Company-Number Identifier
+            await db.unsafe(`
+              INSERT INTO entity_identifiers (entity_id, id_type, id_value, qualifier, source)
+              SELECT e.id, 'or_company_number', e.data->>'or_company_number', NULL, 'offeneregister'
+              FROM entities e
+              WHERE e.entity_type = 'firma'
+                AND e.data->>'or_company_number' IS NOT NULL AND e.data->>'or_company_number' != ''
+              ON CONFLICT (id_type, id_value, qualifier) DO NOTHING
+            `);
 
-        // OR-Company-Number Identifier
-        const orResult = await db.unsafe(`
-          INSERT INTO entity_identifiers (entity_id, id_type, id_value, qualifier, source)
-          SELECT e.id, 'or_company_number', e.data->>'or_company_number', NULL, 'offeneregister'
-          FROM entities e
-          WHERE e.entity_type = 'firma'
-            AND e.data->>'or_company_number' IS NOT NULL AND e.data->>'or_company_number' != ''
-          ON CONFLICT (id_type, id_value, qualifier) DO NOTHING
-        `);
-        console.log(`[Import] OR-Company-Number Identifier: ${orResult.count} eingefügt`);
+            const count = await db.unsafe("SELECT count(*) as c FROM entity_identifiers");
+            console.log(`[Import] Identifier-Import abgeschlossen: ${count[0].c} Identifier insgesamt`);
+          } catch (err) {
+            console.error("[Import] Identifier-Fehler:", err);
+          }
+        })();
 
         return jsonResponse({
-          message: "Identifier erstellt",
-          registerNr: regResult.count,
-          orCompanyNumber: orResult.count,
+          message: "Identifier-Import gestartet, läuft im Hintergrund. Prüfe /api/stats für Fortschritt.",
         });
       },
     },
