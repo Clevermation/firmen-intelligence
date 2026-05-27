@@ -1,6 +1,7 @@
 import index from "../web/index.html";
 import { searchEntities, getEntityById, getStats } from "./queries/search";
 import { getNetwork } from "./queries/network";
+import { importOffeneRegister } from "./importers/offeneregister-fast-server";
 
 const PORT = parseInt(process.env.PORT ?? "3000");
 
@@ -54,6 +55,18 @@ Bun.serve({
     "/api/stats": async () => {
       const stats = await getStats();
       return jsonResponse(stats);
+    },
+
+    "/api/import/offeneregister": {
+      POST: async () => {
+        const stats = await getStats();
+        const firmenCount = stats.entities?.firma ?? 0;
+        if (firmenCount > 100000) {
+          return jsonResponse({ message: "Import bereits ausgeführt", firmen: firmenCount });
+        }
+        importOffeneRegister().catch(console.error);
+        return jsonResponse({ message: "Import gestartet, läuft im Hintergrund" });
+      },
     },
   },
 
