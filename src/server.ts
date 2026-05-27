@@ -3,6 +3,9 @@ import { searchEntities, getEntityById, getStats } from "./queries/search";
 import { getNetwork } from "./queries/network";
 import { importOffeneRegister } from "./importers/offeneregister-fast-server";
 import { importPersons } from "./importers/persons-server";
+import { importBundesanzeiger } from "./importers/bundesanzeiger";
+import { importBAJobs } from "./importers/ba-jobs";
+import { importImpressumFuerEntity, importImpressumBatch } from "./importers/impressum";
 // ensureSchema() ist in db/connection.ts verfügbar, wird aber nicht beim
 // Server-Start aufgerufen — das Schema wird durch schema-init im Compose erstellt.
 
@@ -372,6 +375,83 @@ Bun.serve({
         importPersons().catch(console.error);
         return jsonResponse({
           message: "Personen-Import gestartet (Streaming-Modus), läuft im Hintergrund",
+        });
+      },
+    },
+
+    // ── Import: Bundesanzeiger Jahresabschlüsse ──
+    "/api/import/bundesanzeiger": {
+      POST: async (req) => {
+        const body = (await req.json().catch(() => ({}))) as {
+          entityIds?: string[];
+        };
+
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'bundesanzeiger' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "Bundesanzeiger-Import läuft bereits" });
+        }
+
+        importBundesanzeiger(body.entityIds).catch(console.error);
+        return jsonResponse({
+          message: "Bundesanzeiger-Import gestartet, läuft im Hintergrund",
+          entityIds: body.entityIds ?? "Top-1000 Firmen",
+        });
+      },
+    },
+
+    // ── Import: BA Jobbörse Stellenangebote ──
+    "/api/import/ba-jobs": {
+      POST: async () => {
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'ba-jobs' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "BA-Jobs-Import läuft bereits" });
+        }
+
+        importBAJobs().catch(console.error);
+        return jsonResponse({
+          message: "BA-Jobs-Import gestartet (Top-100 Firmen), läuft im Hintergrund",
+        });
+      },
+    },
+
+    // ── Import: Impressum-Scraper ──
+    "/api/import/impressum": {
+      POST: async (req) => {
+        const url = new URL(req.url);
+        const entityId = url.searchParams.get("entityId");
+
+        if (entityId) {
+          // Einzelne Firma scrapen (synchron, da schnell)
+          try {
+            const daten = await importImpressumFuerEntity(entityId);
+            if (!daten) {
+              return errorResponse("Kein Impressum gefunden (keine Website oder nicht erreichbar)", 404);
+            }
+            return jsonResponse({
+              message: "Impressum erfolgreich gescraped",
+              daten,
+            });
+          } catch (e) {
+            return errorResponse(`Impressum-Scraping fehlgeschlagen: ${(e as Error).message}`, 500);
+          }
+        }
+
+        // Batch-Modus: alle Firmen mit Website
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'impressum-scraper' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "Impressum-Import läuft bereits" });
+        }
+
+        const limit = parseInt(url.searchParams.get("limit") ?? "100", 10);
+        importImpressumBatch(limit).catch(console.error);
+        return jsonResponse({
+          message: `Impressum-Batch-Import gestartet (max. ${limit} Firmen), läuft im Hintergrund`,
         });
       },
     },
