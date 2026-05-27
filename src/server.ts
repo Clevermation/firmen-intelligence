@@ -93,6 +93,17 @@ Bun.serve({
       return jsonResponse(stats);
     },
 
+    "/api/admin/cleanup-imports": {
+      POST: async () => {
+        const db = (await import("./db/connection")).getDb();
+        await db.unsafe(
+          `UPDATE import_runs SET status = 'failed', finished_at = now(), error = 'Manuell abgebrochen'
+           WHERE status = 'running'`
+        );
+        return jsonResponse({ message: "Hängende Imports aufgeräumt" });
+      },
+    },
+
     "/api/import/offeneregister": {
       POST: async () => {
         const stats = await getStats();
