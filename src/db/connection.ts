@@ -48,6 +48,107 @@ export async function rawQuery<T = Record<string, unknown>>(
   return (await db.unsafe(query)) as T[];
 }
 
+// TEI-Endpunkt für Embedding-Generierung
+const TEI_URL = process.env.TEI_URL ?? "http://localhost:8080";
+
+/**
+ * Stellt sicher, dass pgvector Extension, embedding-Spalte und Index existieren.
+ * Idempotent — kann mehrfach aufgerufen werden.
+ */
+export async function ensureVector() {
+  const db = getDb();
+  console.log("[Vector] Prüfe/erstelle pgvector-Schema...");
+
+  // pgvector Extension aktivieren
+  await db.unsafe(`CREATE EXTENSION IF NOT EXISTS vector`);
+
+  // Embedding-Spalte hinzufügen (BGE-M3 = 1024 Dimensionen)
+  await db.unsafe(`ALTER TABLE entities ADD COLUMN IF NOT EXISTS embedding vector(1024)`);
+
+  // IVFFlat-Index für Kosinus-Ähnlichkeitssuche
+  await db.unsafe(`
+    CREATE INDEX IF NOT EXISTS idx_entities_embedding
+    ON entities USING ivfflat (embedding vector_cosine_ops)
+    WITH (lists = 1000)
+  `);
+
+  console.log("[Vector] pgvector-Schema OK");
+}
+
+/** Optionen für die semantische Suche */
+export interface SemanticSearchFilters {
+  entityType?: "firma" | "person";
+  minSimilarity?: number;
+}
+
+/**
+ * Semantische Ähnlichkeitssuche über pgvector (Kosinus-Distanz).
+ * Gibt Entities sortiert nach Ähnlichkeit zurück.
+ */
+export async function semanticSearch(
+  queryEmbedding: number[],
+  limit: number = 10,
+  filters?: SemanticSearchFilters
+) {
+  const db = getDb();
+
+  // Embedding als pgvector-Literal formatieren
+  const embeddingLiteral = `[${queryEmbedding.join(",")}]`;
+
+  // WHERE-Bedingungen aufbauen
+  const conditions: string[] = ["embedding IS NOT NULL"];
+  if (filters?.entityType) {
+    conditions.push(`entity_type = '${filters.entityType}'`);
+  }
+  if (filters?.minSimilarity !== undefined) {
+    // Kosinus-Distanz < (1 - minSimilarity) → Ähnlichkeit > minSimilarity
+    conditions.push(`(1 - (embedding <=> '${embeddingLiteral}'::vector)) >= ${filters.minSimilarity}`);
+  }
+
+  const whereClause = conditions.join(" AND ");
+
+  const result = await db.unsafe(`
+    SELECT
+      id,
+      entity_type,
+      canonical_name,
+      data,
+      1 - (embedding <=> '${embeddingLiteral}'::vector) AS similarity
+    FROM entities
+    WHERE ${whereClause}
+    ORDER BY embedding <=> '${embeddingLiteral}'::vector
+    LIMIT ${limit}
+  `);
+
+  return result as Array<{
+    id: string;
+    entity_type: string;
+    canonical_name: string;
+    data: Record<string, unknown>;
+    similarity: number;
+  }>;
+}
+
+/**
+ * Generiert ein Embedding über den TEI-Service (BGE-M3).
+ * Wirft einen Fehler wenn TEI nicht erreichbar ist.
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const response = await fetch(`${TEI_URL}/embed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ inputs: text, truncate: true }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`TEI Embedding fehlgeschlagen: ${response.status} ${response.statusText}`);
+  }
+
+  // TEI gibt ein Array von Embeddings zurück (eins pro Input)
+  const embeddings = (await response.json()) as number[][];
+  return embeddings[0];
+}
+
 /**
  * Stellt sicher, dass alle benötigten Tabellen und Indizes existieren.
  * Wird beim Server-Start aufgerufen — idempotent (IF NOT EXISTS überall).
@@ -125,6 +226,9 @@ export async function ensureSchema() {
       error           TEXT
     )
   `);
+
+  // pgvector-Schema sicherstellen (embedding-Spalte + Index)
+  await ensureVector();
 
   console.log("[Schema] DB-Schema OK");
 }

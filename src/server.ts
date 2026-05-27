@@ -1,6 +1,7 @@
 import index from "../web/index.html";
 import { searchEntities, getEntityById, getStats } from "./queries/search";
 import { getNetwork } from "./queries/network";
+import { getEnrichmentStats, getImportOverview } from "./queries/enrichment-status";
 import { importOffeneRegister } from "./importers/offeneregister-fast-server";
 import { importPersons } from "./importers/persons-server";
 import { importBundesanzeiger } from "./importers/bundesanzeiger";
@@ -15,9 +16,12 @@ import { importVIES } from "./importers/vies";
 import { importKununu } from "./importers/kununu";
 import { importWappalyzer } from "./importers/wappalyzer";
 import { importTrustpilot } from "./importers/trustpilot";
+import { importWikidata } from "./importers/wikidata";
+import { importDNSDiscovery } from "./importers/dns-discovery";
+import { importLLMEnrichment } from "./enrichment/llm-enrichment";
+import { runEmbeddingPipeline, embedQuery } from "./enrichment/embedding-pipeline";
+import { semanticSearch, generateEmbedding } from "./db/connection";
 import { auth, seedDefaultUser } from "./auth";
-// ensureSchema() ist in db/connection.ts verfügbar, wird aber nicht beim
-// Server-Start aufgerufen — das Schema wird durch schema-init im Compose erstellt.
 
 const PORT = parseInt(process.env.PORT ?? "3100");
 
@@ -544,6 +548,143 @@ Bun.serve({
           entityIds: body.entityIds ?? "Top-500 Firmen",
         });
       },
+    },
+
+    // ── Import: Wikidata SPARQL ──
+    "/api/import/wikidata": {
+      POST: async () => {
+        const db = (await import("./db/connection")).getDb();
+        const running = await db.unsafe(
+          `SELECT id FROM import_runs WHERE source = 'wikidata' AND status = 'running' LIMIT 1`
+        );
+        if (running.length > 0) {
+          return jsonResponse({ message: "Wikidata-Import läuft bereits" });
+        }
+
+        importWikidata().catch(console.error);
+        return jsonResponse({
+          message: "Wikidata SPARQL-Import gestartet (Webseiten, Mitarbeiter, Umsätze), läuft im Hintergrund",
+        });
+      },
+    },
+
+    // ── Import: DNS-Discovery ──
+    "/api/import/dns-discovery": {
+      POST: async (req) => {
+        const url = new URL(req.url);
+        const batchSize = parseInt(url.searchParams.get("batchSize") ?? "50", 10);
+
+        const db = (await import("./db/connection")).getDb();
+        const running = await db.unsafe(
+          `SELECT id FROM import_runs WHERE source = 'dns-discovery' AND status = 'running' LIMIT 1`
+        );
+        if (running.length > 0) {
+          return jsonResponse({ message: "DNS-Discovery läuft bereits" });
+        }
+
+        importDNSDiscovery(batchSize).catch(console.error);
+        return jsonResponse({
+          message: `DNS-Discovery gestartet (Batch-Größe: ${batchSize}), läuft im Hintergrund`,
+        });
+      },
+    },
+
+    // ── Enrichment: LLM-Profil-Generierung ──
+    "/api/enrichment/llm": {
+      POST: async (req) => {
+        const body = (await req.json().catch(() => ({}))) as {
+          limit?: number;
+          minMitarbeiter?: number;
+        };
+
+        const db = (await import("./db/connection")).getDb();
+        const running = await db.unsafe(
+          `SELECT id FROM import_runs WHERE source = 'llm-enrichment' AND status = 'running' LIMIT 1`
+        );
+        if (running.length > 0) {
+          return jsonResponse({ message: "LLM-Enrichment läuft bereits" });
+        }
+
+        importLLMEnrichment({
+          limit: body.limit ?? 100,
+          minMitarbeiter: body.minMitarbeiter,
+        }).catch(console.error);
+        return jsonResponse({
+          message: `LLM-Enrichment gestartet (max. ${body.limit ?? 100} Firmen), läuft im Hintergrund`,
+        });
+      },
+    },
+
+    // ── Enrichment: Embedding-Pipeline ──
+    "/api/enrichment/embedding": {
+      POST: async (req) => {
+        const body = (await req.json().catch(() => ({}))) as {
+          limit?: number;
+          onlyTier1?: boolean;
+        };
+
+        const db = (await import("./db/connection")).getDb();
+        const running = await db.unsafe(
+          `SELECT id FROM import_runs WHERE source = 'embedding-pipeline' AND status = 'running' LIMIT 1`
+        );
+        if (running.length > 0) {
+          return jsonResponse({ message: "Embedding-Pipeline läuft bereits" });
+        }
+
+        runEmbeddingPipeline({
+          limit: body.limit ?? 1000,
+          onlyTier1: body.onlyTier1,
+        }).catch(console.error);
+        return jsonResponse({
+          message: `Embedding-Pipeline gestartet (max. ${body.limit ?? 1000} Firmen), läuft im Hintergrund`,
+        });
+      },
+    },
+
+    // ── Semantic Search (pgvector) ──
+    "/api/search/semantic": async (req) => {
+      const url = new URL(req.url);
+      const query = url.searchParams.get("q");
+      const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "50", 10), 200);
+
+      if (!query) return errorResponse("Parameter 'q' fehlt", 400);
+
+      try {
+        const queryEmbedding = await generateEmbedding(query);
+        const results = await semanticSearch(queryEmbedding, limit, {
+          entityType: "firma",
+          minSimilarity: 0.3,
+        });
+
+        return jsonResponse({
+          query,
+          total: results.length,
+          results: results.map((r) => ({
+            id: r.id,
+            name: r.canonical_name,
+            similarity: Math.round(r.similarity * 100) / 100,
+            data: r.data,
+          })),
+        });
+      } catch (e) {
+        const msg = (e as Error).message;
+        if (msg.includes("TEI") || msg.includes("fetch")) {
+          return errorResponse("TEI-Embedding-Service nicht erreichbar. Ist der TEI-Container gestartet?", 503);
+        }
+        return errorResponse(`Semantic Search fehlgeschlagen: ${msg}`, 500);
+      }
+    },
+
+    // ── Enrichment-Statistiken (Tier-Übersicht) ──
+    "/api/enrichment/stats": async () => {
+      const stats = await getEnrichmentStats();
+      return jsonResponse(stats);
+    },
+
+    // ── Import-Übersicht (alle Quellen mit KPIs) ──
+    "/api/enrichment/overview": async () => {
+      const overview = await getImportOverview();
+      return jsonResponse(overview);
     },
 
     // ── Import-Status ──

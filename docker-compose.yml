@@ -1,6 +1,8 @@
 services:
   db:
-    image: apache/age
+    build:
+      context: ./docker/db
+      dockerfile: Dockerfile
     restart: unless-stopped
     environment:
       POSTGRES_USER: firmendb
@@ -17,6 +19,18 @@ services:
       timeout: 5s
       retries: 10
 
+  tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
+    restart: unless-stopped
+    volumes:
+      - tei-data:/data
+    environment:
+      MODEL_ID: BAAI/bge-m3
+      MAX_BATCH_TOKENS: 16384
+      MAX_CONCURRENT_REQUESTS: 128
+    ports:
+      - "${TEI_PORT:-8080}:80"
+
   app:
     build:
       context: .
@@ -27,9 +41,11 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://firmendb:${DB_PASSWORD:-firmendb_dev_2026}@db:5432/firmendb
+      TEI_URL: http://tei:80
       PORT: ${PORT:-3000}
     ports:
       - "${PORT:-3000}:3000"
 
 volumes:
   pgdata:
+  tei-data:

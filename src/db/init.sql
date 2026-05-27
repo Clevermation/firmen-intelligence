@@ -1,7 +1,8 @@
 -- Firmen-Intelligence: DB-Schema
--- PostgreSQL 18 + Apache AGE
+-- PostgreSQL 16 + Apache AGE + pgvector
 -- AGE Extension wird automatisch durch 00-create-extension-age.sql geladen
 
+CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- ============================================================
@@ -25,6 +26,10 @@ CREATE INDEX IF NOT EXISTS idx_entities_name ON entities USING gin (canonical_na
 CREATE INDEX IF NOT EXISTS idx_entities_search ON entities USING GIN (search_vector);
 CREATE INDEX IF NOT EXISTS idx_entities_data ON entities USING GIN (data);
 CREATE INDEX IF NOT EXISTS idx_entities_type_name ON entities (entity_type, canonical_name);
+
+-- Vektor-Spalte für semantische Suche (BGE-M3 = 1024 Dimensionen)
+ALTER TABLE entities ADD COLUMN IF NOT EXISTS embedding vector(1024);
+CREATE INDEX IF NOT EXISTS idx_entities_embedding ON entities USING ivfflat (embedding vector_cosine_ops) WITH (lists = 1000);
 
 CREATE TABLE IF NOT EXISTS entity_identifiers (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
