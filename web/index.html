@@ -630,6 +630,57 @@
     .stat-change.up { color: var(--success); background: var(--success-ghost); }
     .stat-change.neutral { color: var(--text-tertiary); background: var(--bg-hover); }
 
+    /* Dashboard — Bundesland-Balkendiagramm (Inline) */
+    .stats-bar-chart {
+      margin-bottom: 32px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px 16px;
+    }
+    .stats-bar-chart-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-tertiary);
+      margin-bottom: 14px;
+    }
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 5px 0;
+    }
+    .bar-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      min-width: 120px;
+      flex-shrink: 0;
+    }
+    .bar-track {
+      flex: 1;
+      height: 6px;
+      background: var(--bg-hover);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--clm-primary), var(--clm-primary-text));
+      border-radius: 3px;
+      transition: width 0.6s var(--ease-out);
+    }
+    .bar-value {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-tertiary);
+      min-width: 70px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
     /* Dashboard-Zweispalter */
     .dashboard-grid {
       display: grid;
@@ -825,7 +876,17 @@
       font-family: var(--font-display);
       outline: none;
       transition: border-color var(--duration-fast);
-      appearance: auto;
+    }
+    .filter-select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235c5e72' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 12px;
+      padding-right: 28px;
+      cursor: pointer;
     }
     .filter-select:focus, .filter-input:focus {
       border-color: var(--clm-primary);
@@ -1022,6 +1083,41 @@
       height: 1px;
       background: var(--border-subtle);
     }
+
+    /* Profil-Tabs */
+    .profil-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      padding: 3px;
+      background: var(--bg-card);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      width: fit-content;
+    }
+    .profil-tab {
+      padding: 7px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-tertiary);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all var(--duration-fast) ease;
+      user-select: none;
+      border: none;
+      background: none;
+      font-family: var(--font-display);
+    }
+    .profil-tab:hover {
+      color: var(--text-secondary);
+      background: var(--bg-hover);
+    }
+    .profil-tab.active {
+      background: var(--clm-primary-ghost);
+      color: var(--clm-primary-text);
+    }
+    .profil-tab-content { display: none; }
+    .profil-tab-content.active { display: block; animation: viewFadeIn 0.2s var(--ease-out); }
 
     /* Event-Timeline */
     .event-timeline { }
@@ -1412,6 +1508,7 @@
         <span class="login-logo-product">Clevermation Intelligence</span>
       </div>
     </div>
+    <p style="font-size:13px;color:var(--text-tertiary);margin-bottom:28px;letter-spacing:0.2px;">5,3 Mio. Firmen. Alle Vernetzungen. Eine Plattform.</p>
 
     <div class="login-card">
       <h1>Willkommen zurück</h1>
@@ -1504,6 +1601,11 @@
         <div class="stat-card"><div class="skeleton" style="width:80px;height:12px;margin-bottom:10px"></div><div class="skeleton" style="width:120px;height:32px"></div></div>
         <div class="stat-card"><div class="skeleton" style="width:80px;height:12px;margin-bottom:10px"></div><div class="skeleton" style="width:120px;height:32px"></div></div>
         <div class="stat-card"><div class="skeleton" style="width:80px;height:12px;margin-bottom:10px"></div><div class="skeleton" style="width:120px;height:32px"></div></div>
+      </div>
+
+      <div id="stats-bar-chart" class="stats-bar-chart" style="display:none">
+        <div class="stats-bar-chart-title">Top 5 Bundesländer nach Firmenanzahl</div>
+        <div id="stats-bar-rows"></div>
       </div>
 
       <div class="dashboard-grid">
@@ -1799,32 +1901,52 @@ async function loadDashboard() {
       `Stand: ${new Date().toLocaleString('de-DE', {dateStyle:'medium', timeStyle:'short'})}`;
 
     // Stats
+    const blCount = (s.topBundeslaender ?? []).length;
     document.getElementById('stats-grid').innerHTML = `
       <div class="stat-card">
         <div class="stat-icon purple">⬡</div>
         <div class="stat-label">Firmen</div>
         <div class="stat-value">${fmt(firmen)}</div>
-        <div class="stat-change neutral">Entities</div>
+        <div class="stat-change neutral">aus OffeneRegister</div>
       </div>
       <div class="stat-card">
         <div class="stat-icon coral">⬢</div>
         <div class="stat-label">Personen</div>
         <div class="stat-value">${fmt(personen)}</div>
-        <div class="stat-change neutral">Entities</div>
+        <div class="stat-change neutral">Geschäftsführer & Gesellschafter</div>
       </div>
       <div class="stat-card">
         <div class="stat-icon green">⚡</div>
-        <div class="stat-label">Events</div>
-        <div class="stat-value">${fmt(eventCount)}</div>
-        <div class="stat-change neutral">${Object.keys(s.events ?? {}).length} Typen</div>
+        <div class="stat-label">Rechtsformen</div>
+        <div class="stat-value">${s.topRechtsformen?.length ?? 0}</div>
+        <div class="stat-change neutral">verschiedene Rechtsformen</div>
       </div>
       <div class="stat-card">
         <div class="stat-icon blue">◈</div>
-        <div class="stat-label">Rechtsformen</div>
-        <div class="stat-value">${s.topRechtsformen?.length ?? 0}</div>
-        <div class="stat-change neutral">Kategorien</div>
+        <div class="stat-label">Bundesländer</div>
+        <div class="stat-value">${blCount}</div>
+        <div class="stat-change neutral">mit Daten abgedeckt</div>
       </div>
     `;
+
+    // Top-5 Balkendiagramm
+    const top5bl = (s.topBundeslaender ?? []).slice(0, 5);
+    const barChartEl = document.getElementById('stats-bar-chart');
+    const barRowsEl = document.getElementById('stats-bar-rows');
+    if (top5bl.length > 0) {
+      const maxTop5 = top5bl[0].count || 1;
+      barChartEl.style.display = 'block';
+      barRowsEl.innerHTML = top5bl.map(b => {
+        const pct = Math.round((b.count / maxTop5) * 100);
+        return `<div class="bar-row">
+          <span class="bar-label">${esc(b.bundesland || 'Unbekannt')}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <span class="bar-value">${fmt(b.count)}</span>
+        </div>`;
+      }).join('');
+    } else {
+      barChartEl.style.display = 'none';
+    }
 
     // Top Bundesländer
     const bl = (s.topBundeslaender ?? []).slice(0, 10);
@@ -2073,17 +2195,27 @@ async function doSearch(offset = 0) {
 
     resultsEl.innerHTML = data.results.map(r => {
       const d = r.data;
+      const isFirma = r.entity_type === 'firma';
       const statusCls = d.status === 'aktiv' ? 'badge-aktiv' : 'badge-removed';
       const register = [d.registerArt, d.registerNummer].filter(Boolean).join(' ');
+      const entityIcon = isFirma ? '◈' : '◉';
+      const entityIconStyle = isFirma
+        ? 'background:var(--clm-primary-ghost);color:var(--clm-primary-text)'
+        : 'background:var(--clm-coral-ghost);color:var(--clm-coral)';
+      // Person: Position oder Wohnort anzeigen
+      const personExtra = !isFirma ? (d.position || d.wohnort || '') : '';
       return `<div class="result-card" onclick="showProfil('${r.id}')">
+        <div style="width:32px;height:32px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;${entityIconStyle}">${entityIcon}</div>
         <div class="rc-main">
           <div class="rc-name">${esc(r.name)}</div>
           <div class="rc-meta">
             ${register ? `<span class="rc-meta-item">${esc(register)}</span>` : ''}
             ${d.sitz ? `<span class="rc-meta-item">${esc(d.sitz)}</span>` : ''}
+            ${personExtra ? `<span class="rc-meta-item">${esc(personExtra)}</span>` : ''}
             ${d.rechtsform ? `<span class="badge badge-rechtsform">${esc(d.rechtsform)}</span>` : ''}
             ${d.status ? `<span class="badge ${statusCls}">${esc(d.status)}</span>` : ''}
           </div>
+          ${d.adresse ? `<div style="font-size:11px;color:var(--text-disabled);margin-top:3px;font-family:var(--font-mono)">${esc(d.adresse)}</div>` : ''}
         </div>
         <span class="rc-arrow">→</span>
       </div>`;
@@ -2130,9 +2262,12 @@ async function showProfil(id) {
       </div>
     `;
 
-    // Body
-    let html = '';
+    // Body — Tab-System (Stammdaten / Events / Netzwerk)
+    let htmlStamm = '';
+    let htmlEvents = '';
+    let htmlNetzwerk = '';
 
+    // ── Tab: Stammdaten ──
     // Detail-Felder
     const fields = [
       ['Rechtsform', d.rechtsform],
@@ -2147,59 +2282,82 @@ async function showProfil(id) {
     ].filter(([, v]) => v);
 
     if (fields.length > 0) {
-      html += '<div class="detail-grid">';
+      htmlStamm += '<div class="detail-grid">';
       fields.forEach(([label, value]) => {
-        html += `<div class="detail-item">
+        htmlStamm += `<div class="detail-item">
           <div class="detail-label">${esc(label)}</div>
           <div class="detail-value">${esc(String(value))}</div>
         </div>`;
       });
-      html += '</div>';
-    }
-
-    // Frühere Namen
-    if (d.fruehere_namen?.length) {
-      html += `<div class="modal-section">
-        <div class="modal-section-title">Frühere Namen</div>`;
-      d.fruehere_namen.forEach(n => {
-        html += `<div style="font-size:12.5px;font-family:var(--font-mono);color:var(--text-secondary);padding:3px 0;">— ${esc(n)}</div>`;
-      });
-      html += '</div>';
+      htmlStamm += '</div>';
     }
 
     // Identifier
     const ids = (e.identifiers ?? []).filter(i => i.type);
     if (ids.length) {
-      html += `<div class="modal-section">
+      htmlStamm += `<div class="modal-section">
         <div class="modal-section-title">Identifier (${ids.length})</div>`;
       ids.forEach(i => {
-        html += `<div class="identifier-row">
+        htmlStamm += `<div class="identifier-row">
           <span class="identifier-type">${esc(i.type)}</span>
           <span class="identifier-value">${esc(i.value)}</span>
           ${i.qualifier ? `<span class="identifier-qualifier">(${esc(i.qualifier)})</span>` : ''}
         </div>`;
       });
-      html += '</div>';
+      htmlStamm += '</div>';
     }
 
-    // Event-Timeline
+    // Frühere Namen
+    if (d.fruehere_namen?.length) {
+      htmlStamm += `<div class="modal-section">
+        <div class="modal-section-title">Frühere Namen</div>`;
+      d.fruehere_namen.forEach(n => {
+        htmlStamm += `<div style="font-size:12.5px;font-family:var(--font-mono);color:var(--text-secondary);padding:3px 0;">— ${esc(n)}</div>`;
+      });
+      htmlStamm += '</div>';
+    }
+
+    if (!htmlStamm) {
+      htmlStamm = '<div class="empty-state"><div class="empty-state-text">Keine Stammdaten vorhanden</div></div>';
+    }
+
+    // ── Tab: Events ──
     const events = e.events ?? [];
     if (events.length) {
-      html += `<div class="modal-section">
+      htmlEvents += `<div class="modal-section">
         <div class="modal-section-title">Event-Timeline (${events.length})</div>
         <div class="event-timeline">`;
       events.slice(0, 20).forEach(ev => {
-        html += `<div class="event-item">
+        htmlEvents += `<div class="event-item">
           <span class="event-type-badge">${esc(ev.event_type)}</span>
           <span class="event-date">${esc(ev.event_date ?? '—')}</span>
           <span class="event-source">${esc(ev.source)}</span>
         </div>`;
       });
       if (events.length > 20) {
-        html += `<div style="font-size:11px;color:var(--text-disabled);padding:8px 0;font-family:var(--font-mono);">… und ${events.length - 20} weitere Events</div>`;
+        htmlEvents += `<div style="font-size:11px;color:var(--text-disabled);padding:8px 0;font-family:var(--font-mono);">… und ${events.length - 20} weitere Events</div>`;
       }
-      html += '</div></div>';
+      htmlEvents += '</div></div>';
+    } else {
+      htmlEvents = '<div class="empty-state"><div class="empty-state-text">Keine Events vorhanden</div></div>';
     }
+
+    // ── Tab: Netzwerk ──
+    htmlNetzwerk = `<div id="profil-graph" style="width:100%;height:360px;display:flex;align-items:center;justify-content:center;">
+      <div class="empty-state"><div class="empty-state-text">Graph-Visualisierung wird geladen …</div></div>
+    </div>`;
+
+    // Zusammenbauen
+    const html = `
+      <div class="profil-tabs">
+        <button class="profil-tab active" onclick="switchProfilTab(this, 'stammdaten')">Stammdaten</button>
+        <button class="profil-tab" onclick="switchProfilTab(this, 'events')">Events${events.length ? ` (${events.length})` : ''}</button>
+        <button class="profil-tab" onclick="switchProfilTab(this, 'netzwerk')">Netzwerk</button>
+      </div>
+      <div id="profil-tab-stammdaten" class="profil-tab-content active">${htmlStamm}</div>
+      <div id="profil-tab-events" class="profil-tab-content">${htmlEvents}</div>
+      <div id="profil-tab-netzwerk" class="profil-tab-content">${htmlNetzwerk}</div>
+    `;
 
     document.getElementById('profil-content').innerHTML = html;
 
@@ -2211,6 +2369,16 @@ async function showProfil(id) {
 
 function closeProfil() {
   document.getElementById('profil-modal').classList.remove('open');
+}
+
+function switchProfilTab(btn, tabName) {
+  // Tabs umschalten
+  btn.closest('.profil-tabs').querySelectorAll('.profil-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  // Tab-Inhalte umschalten
+  document.querySelectorAll('.profil-tab-content').forEach(c => c.classList.remove('active'));
+  const target = document.getElementById(`profil-tab-${tabName}`);
+  if (target) target.classList.add('active');
 }
 
 // ═══════════════════════════════════════
@@ -2239,12 +2407,28 @@ async function loadSources() {
     const badgeCls = `badge-${status === 'completed' ? 'completed' : status === 'running' ? 'running' : status === 'failed' ? 'failed' : 'idle'}`;
     const lastRun = imp ? relativeTime(imp.started_at) : 'Noch nie';
 
+    // Optionale KPIs aus Import-Daten
+    const duration = imp?.duration ?? imp?.stats?.duration ?? null;
+    const importedCount = imp?.count ?? imp?.stats?.count ?? imp?.stats?.imported ?? null;
+    let kpiHtml = '';
+    if (duration || importedCount) {
+      kpiHtml += '<div style="display:flex;gap:12px;margin-top:4px;">';
+      if (duration) {
+        kpiHtml += `<span style="font-size:10px;font-family:var(--font-mono);color:var(--text-disabled);">⏱ ${esc(String(duration))}</span>`;
+      }
+      if (importedCount) {
+        kpiHtml += `<span style="font-size:10px;font-family:var(--font-mono);color:var(--text-disabled);">📥 ${fmt(importedCount)} Einträge</span>`;
+      }
+      kpiHtml += '</div>';
+    }
+
     return `<div class="source-card">
       <div class="source-icon-box ${s.color}">${s.icon}</div>
       <div class="source-info">
         <div class="source-name">${esc(s.name)}</div>
         <div class="source-desc">${esc(s.desc)}</div>
         <div class="source-last-run">Letzter Import: ${lastRun}</div>
+        ${kpiHtml}
       </div>
       <div class="source-status">
         <span class="badge ${badgeCls}">${status}</span>
