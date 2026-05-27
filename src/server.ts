@@ -12,80 +12,21 @@ import { importGooglePlaces } from "./importers/google-places";
 import { importOpenLegalData } from "./importers/openlegaldata";
 import { importFoerderkatalog } from "./importers/foerderkatalog";
 import { importVIES } from "./importers/vies";
+import { importKununu } from "./importers/kununu";
+import { importWappalyzer } from "./importers/wappalyzer";
+import { importTrustpilot } from "./importers/trustpilot";
+import { auth, seedDefaultUser } from "./auth";
 // ensureSchema() ist in db/connection.ts verfügbar, wird aber nicht beim
 // Server-Start aufgerufen — das Schema wird durch schema-init im Compose erstellt.
 
-const PORT = parseInt(process.env.PORT ?? "3000");
+const PORT = parseInt(process.env.PORT ?? "3100");
 
 // ═══════════════════════════════════════════════════
-// Auth — Email + Passwort (kein Magic-Link)
-// Token-basierte Session-Verwaltung
+// Auth — Better Auth (Email + Passwort, DB-Sessions)
 // ═══════════════════════════════════════════════════
 
-interface UserRecord {
-  passwordHash: string;
-  name: string;
-  email: string;
-}
-
-interface TokenData {
-  email: string;
-  name: string;
-  createdAt: number;
-}
-
-// Registrierte Benutzer
-const USERS: Record<string, UserRecord> = {};
-// Aktive Sessions (Token → User-Daten)
-const TOKENS = new Map<string, TokenData>();
-// Token-Lebensdauer: 7 Tage
-const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-/**
- * Initialisiert den Standard-Admin-Benutzer
- */
-async function initUsers() {
-  const defaultEmail = process.env.ADMIN_EMAIL ?? "developer@clevermation.com";
-  const defaultPw = process.env.ADMIN_PASSWORD ?? "4!HyUHytvjtqM2YLeqRp";
-  USERS[defaultEmail] = {
-    passwordHash: await Bun.password.hash(defaultPw),
-    name: "Developer",
-    email: defaultEmail,
-  };
-  console.log(`Auth: Benutzer ${defaultEmail} initialisiert`);
-}
-await initUsers();
-
-/**
- * Bereinigt abgelaufene Tokens
- */
-function cleanupTokens() {
-  const now = Date.now();
-  for (const [token, data] of TOKENS) {
-    if (now - data.createdAt > TOKEN_TTL_MS) {
-      TOKENS.delete(token);
-    }
-  }
-}
-// Token-Bereinigung alle 30 Minuten
-setInterval(cleanupTokens, 30 * 60 * 1000);
-
-/**
- * Validiert einen Token und gibt die zugehörigen User-Daten zurück
- */
-function validateToken(authHeader: string | null): TokenData | null {
-  if (!authHeader) return null;
-  const token = authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : authHeader;
-  const data = TOKENS.get(token);
-  if (!data) return null;
-  if (Date.now() - data.createdAt > TOKEN_TTL_MS) {
-    TOKENS.delete(token);
-    return null;
-  }
-  return data;
-}
+// Standard-Admin-Benutzer anlegen
+await seedDefaultUser();
 
 // ═══════════════════════════════════════════════════
 // CORS & Response-Helfer
@@ -125,72 +66,15 @@ Bun.serve({
         uptime: process.uptime(),
       }),
 
-    // ── Auth: Login ──
-    "/api/auth/login": {
-      POST: async (req) => {
-        const body = (await req.json()) as {
-          email?: string;
-          password?: string;
-        };
-
-        if (!body.email || !body.password) {
-          return errorResponse("Email und Passwort erforderlich", 400);
-        }
-
-        // Benutzer prüfen
-        const user = USERS[body.email];
-        if (!user) {
-          // Konstante Antwortzeit um Timing-Angriffe zu erschweren
-          await Bun.password.hash("dummy-timing-protection");
-          return errorResponse("Ungültige Zugangsdaten", 401);
-        }
-
-        const valid = await Bun.password.verify(
-          body.password,
-          user.passwordHash
-        );
-        if (!valid) {
-          return errorResponse("Ungültige Zugangsdaten", 401);
-        }
-
-        // Token generieren
-        const token = `fi_${crypto.randomUUID().replace(/-/g, "")}`;
-        TOKENS.set(token, {
-          email: body.email,
-          name: user.name,
-          createdAt: Date.now(),
-        });
-
-        console.log(`Auth: Login erfolgreich für ${body.email}`);
-        return jsonResponse({
-          token,
-          email: body.email,
-          name: user.name,
-        });
-      },
-    },
-
-    // ── Auth: Aktuellen Benutzer prüfen ──
-    "/api/auth/me": async (req) => {
-      const user = validateToken(req.headers.get("Authorization"));
-      if (!user) {
-        return errorResponse("Nicht authentifiziert", 401);
-      }
-      return jsonResponse({ email: user.email, name: user.name });
-    },
-
-    // ── Auth: Logout ──
-    "/api/auth/logout": {
-      POST: async (req) => {
-        const authHeader = req.headers.get("Authorization");
-        if (authHeader) {
-          const token = authHeader.startsWith("Bearer ")
-            ? authHeader.slice(7)
-            : authHeader;
-          TOKENS.delete(token);
-        }
-        return jsonResponse({ message: "Abgemeldet" });
-      },
+    // ── Auth: Better Auth Handler (alle /api/auth/* Routen) ──
+    // Login, Logout, Session, Sign-Up etc. werden von better-auth verwaltet.
+    // Beispiel-Endpunkte:
+    //   POST /api/auth/sign-in/email   → Login
+    //   POST /api/auth/sign-up/email   → Registrierung
+    //   POST /api/auth/sign-out        → Logout
+    //   GET  /api/auth/get-session     → Session prüfen
+    "/api/auth/*": async (req) => {
+      return auth.handler(req);
     },
 
     // ── Firmen- & Personensuche ──
@@ -592,6 +476,72 @@ Bun.serve({
           message: entityId
             ? `VIES-Validierung für Entity ${entityId} gestartet`
             : "VIES-Validierung gestartet (alle Firmen mit USt-ID), läuft im Hintergrund",
+        });
+      },
+    },
+
+    // ── Import: Kununu Arbeitgeber-Bewertungen ──
+    "/api/import/kununu": {
+      POST: async (req) => {
+        const body = (await req.json().catch(() => ({}))) as {
+          entityIds?: string[];
+        };
+
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'kununu' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "Kununu-Import läuft bereits" });
+        }
+
+        importKununu(body.entityIds).catch(console.error);
+        return jsonResponse({
+          message: "Kununu-Import gestartet, läuft im Hintergrund",
+          entityIds: body.entityIds ?? "Top-500 Firmen",
+        });
+      },
+    },
+
+    // ── Import: Wappalyzer Technologie-Erkennung ──
+    "/api/import/wappalyzer": {
+      POST: async (req) => {
+        const body = (await req.json().catch(() => ({}))) as {
+          entityIds?: string[];
+        };
+
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'wappalyzer' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "Wappalyzer-Import läuft bereits" });
+        }
+
+        importWappalyzer(body.entityIds).catch(console.error);
+        return jsonResponse({
+          message: "Wappalyzer-Import gestartet (Technologie-Erkennung), läuft im Hintergrund",
+          entityIds: body.entityIds ?? "Top-500 Firmen mit Website",
+        });
+      },
+    },
+
+    // ── Import: Trustpilot Bewertungen ──
+    "/api/import/trustpilot": {
+      POST: async (req) => {
+        const body = (await req.json().catch(() => ({}))) as {
+          entityIds?: string[];
+        };
+
+        const running = (await (await import("./db/connection")).getDb().unsafe(
+          `SELECT id FROM import_runs WHERE source = 'trustpilot' AND status = 'running' LIMIT 1`
+        ));
+        if (running.length > 0) {
+          return jsonResponse({ message: "Trustpilot-Import läuft bereits" });
+        }
+
+        importTrustpilot(body.entityIds).catch(console.error);
+        return jsonResponse({
+          message: "Trustpilot-Import gestartet, läuft im Hintergrund",
+          entityIds: body.entityIds ?? "Top-500 Firmen",
         });
       },
     },
