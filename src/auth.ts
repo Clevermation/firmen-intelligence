@@ -12,14 +12,24 @@ const DATABASE_URL =
 
 const PORT = parseInt(process.env.PORT ?? "3100");
 
-export const auth = betterAuth({
-  // PostgreSQL-Verbindung über pg Pool
-  database: new Pool({
-    connectionString: DATABASE_URL,
-  }),
+const pool = new Pool({ connectionString: DATABASE_URL });
 
-  // Base-URL für Callbacks und Redirects
-  baseURL: `http://localhost:${PORT}`,
+// Better Auth Tabellen beim Start erstellen (idempotent)
+try {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS "user" (id TEXT PRIMARY KEY, name TEXT, email TEXT UNIQUE, "emailVerified" BOOLEAN DEFAULT FALSE, image TEXT, "createdAt" TIMESTAMPTZ DEFAULT now(), "updatedAt" TIMESTAMPTZ DEFAULT now());
+    CREATE TABLE IF NOT EXISTS "session" (id TEXT PRIMARY KEY, "expiresAt" TIMESTAMPTZ, token TEXT UNIQUE, "createdAt" TIMESTAMPTZ DEFAULT now(), "updatedAt" TIMESTAMPTZ DEFAULT now(), "ipAddress" TEXT, "userAgent" TEXT, "userId" TEXT REFERENCES "user"(id));
+    CREATE TABLE IF NOT EXISTS "account" (id TEXT PRIMARY KEY, "accountId" TEXT, "providerId" TEXT, "userId" TEXT REFERENCES "user"(id), "accessToken" TEXT, "refreshToken" TEXT, "idToken" TEXT, "accessTokenExpiresAt" TIMESTAMPTZ, "refreshTokenExpiresAt" TIMESTAMPTZ, password TEXT, "createdAt" TIMESTAMPTZ DEFAULT now(), "updatedAt" TIMESTAMPTZ DEFAULT now());
+    CREATE TABLE IF NOT EXISTS "verification" (id TEXT PRIMARY KEY, identifier TEXT, value TEXT, "expiresAt" TIMESTAMPTZ, "createdAt" TIMESTAMPTZ DEFAULT now(), "updatedAt" TIMESTAMPTZ DEFAULT now());
+  `);
+  console.log("Auth: DB-Tabellen OK");
+} catch (e) {
+  console.warn("Auth: DB-Tabellen-Erstellung fehlgeschlagen:", (e as Error).message);
+}
+
+export const auth = betterAuth({
+  database: pool,
+  baseURL: process.env.BASE_URL ?? `http://localhost:${PORT}`,
 
   // Basis-Pfad für Auth-Routen (Standard: /api/auth)
   basePath: "/api/auth",
@@ -28,6 +38,7 @@ export const auth = betterAuth({
   trustedOrigins: [
     "http://localhost:3100",
     "http://localhost:3000",
+    "https://intelligence.clevermationgroup.com",
   ],
 
   // Email + Passwort aktivieren
