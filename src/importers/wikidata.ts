@@ -4,11 +4,30 @@ import { updateEntityData, escapeString } from "../db/helpers";
 // SPARQL-Endpoint von Wikidata
 const SPARQL_ENDPOINT = "https://query.wikidata.org/sparql";
 
-// Batch-Größe für SPARQL-Paginierung (Wikidata hat 60s Timeout)
-const BATCH_SIZE = 5000;
-
 // Rate-Limit: Pause zwischen Requests in ms
-const RATE_LIMIT_MS = 1500;
+const RATE_LIMIT_MS = 2000;
+
+// Maximale Retries bei Timeout/Rate-Limit
+const MAX_RETRIES = 3;
+
+// Konkrete Firmen-Typ-QIDs (vermeidet teure P279*-Traversierung).
+// Jeder Typ wird einzeln abgefragt — eine VALUES-Liste auf einmal läuft
+// in den 60s-Timeout, pro Typ bleibt die Query klein und schnell.
+const COMPANY_TYPES: Array<[string, string]> = [
+  ["Q4830453", "Unternehmen"],
+  ["Q6881511", "Enterprise"],
+  ["Q783794", "Gesellschaft"],
+  ["Q891723", "Börsennotiert"],
+  ["Q18388277", "Technologie"],
+  ["Q1589009", "Privatbesitz"],
+  ["Q210167", "Software"],
+  ["Q2085381", "Verlag"],
+  ["Q786820", "Automobil"],
+  ["Q507619", "Einzelhandel"],
+  ["Q5621421", "Maschinenbau"],
+  ["Q18043413", "Bauunternehmen"],
+  ["Q4830453", "Unternehmen"],
+];
 
 // Rechtsform-Suffixe zum Entfernen beim Matching
 const LEGAL_SUFFIXES = [
@@ -61,47 +80,87 @@ interface SparqlResponse {
   };
 }
 
-/**
- * Baut die SPARQL-Query für deutsche Unternehmen mit optionalen Properties.
- * Verwendet LIMIT/OFFSET für Paginierung wegen Wikidata-Timeout.
- */
-function buildSparqlQuery(limit: number, offset: number): string {
-  return `
-SELECT ?item ?itemLabel ?website ?employees ?revenue ?hqLabel WHERE {
-  ?item wdt:P17 wd:Q183 .
-  ?item wdt:P31/wdt:P279* wd:Q4830453 .
-  OPTIONAL { ?item wdt:P856 ?website }
-  OPTIONAL { ?item wdt:P1128 ?employees }
-  OPTIONAL { ?item wdt:P2139 ?revenue }
-  OPTIONAL { ?item wdt:P159 ?hq . ?hq rdfs:label ?hqLabel . FILTER(LANG(?hqLabel) = "de") }
-  FILTER(BOUND(?website) || BOUND(?employees) || BOUND(?revenue))
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "de,en" }
+// Innerer Aggregations-Block (gruppiert nur nach ?item) — verhindert
+// kartesische Produkte. Das Label kommt im äußeren Block via Label-Service,
+// da Blazegraph kein GROUP BY über Label-Service-Variablen erlaubt.
+const AGG_INNER = `
+    OPTIONAL { ?item wdt:P856 ?w }
+    OPTIONAL { ?item wdt:P1128 ?e }
+    OPTIONAL { ?item wdt:P2139 ?r }
+    OPTIONAL { ?item wdt:P159 ?hqItem . ?hqItem rdfs:label ?hq . FILTER(LANG(?hq) = "de") }
+  } GROUP BY ?item
 }
-LIMIT ${limit} OFFSET ${offset}
-  `.trim();
+SERVICE wikibase:label { bd:serviceParam wikibase:language "de,en". ?item rdfs:label ?itemLabel. }
+}`.trim();
+
+const AGG_SELECT = `SELECT ?item ?itemLabel ?website ?employees ?revenue ?hqLabel WHERE {
+  { SELECT ?item (SAMPLE(?w) AS ?website) (MAX(?e) AS ?employees) (MAX(?r) AS ?revenue) (SAMPLE(?hq) AS ?hqLabel) WHERE {`;
+
+/**
+ * Query für seltene Properties (Mitarbeiter P1128, Umsatz P2139).
+ * Verankert auf der seltenen Property → klein und schnell.
+ */
+function buildRarePropertyQuery(propertyId: string): string {
+  return `${AGG_SELECT}
+    ?item wdt:${propertyId} ?_anchor .
+    ?item wdt:P17 wd:Q183 .
+${AGG_INNER}`;
+}
+
+/**
+ * Query für Webseiten (P856), verankert auf EINEM konkreten Firmen-Typ.
+ */
+function buildWebsiteQueryForType(typeQid: string): string {
+  return `${AGG_SELECT}
+    ?item wdt:P31 wd:${typeQid} .
+    ?item wdt:P17 wd:Q183 .
+    ?item wdt:P856 ?_site .
+${AGG_INNER}`;
 }
 
 /**
  * Führt eine SPARQL-Query gegen den Wikidata-Endpoint aus.
- * Gibt die Bindings als Array zurück.
+ * Mit Retry + Backoff bei Timeout (504) oder Rate-Limit (429).
  */
-async function executeSparqlQuery(query: string): Promise<WikidataResult[]> {
+async function executeSparqlQuery(query: string, label: string): Promise<WikidataResult[]> {
   const url = `${SPARQL_ENDPOINT}?query=${encodeURIComponent(query)}`;
 
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/sparql-results+json",
-      "User-Agent": "FirmenIntelligence/1.0 (https://clevermation.com; theo@clevermation.com)",
-    },
-  });
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/sparql-results+json",
+          "User-Agent": "FirmenIntelligence/1.0 (https://clevermation.com; theo@clevermation.com)",
+        },
+      });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`SPARQL-Fehler ${response.status}: ${text.substring(0, 500)}`);
+      if (response.ok) {
+        const json = (await response.json()) as SparqlResponse;
+        return json.results.bindings;
+      }
+
+      // Bei Timeout/Rate-Limit: erneut versuchen mit Backoff
+      if ((response.status === 504 || response.status === 429) && attempt < MAX_RETRIES) {
+        const backoff = attempt * 5000;
+        console.warn(`[Wikidata] ${label}: HTTP ${response.status}, Retry ${attempt}/${MAX_RETRIES} in ${backoff}ms...`);
+        await new Promise((r) => setTimeout(r, backoff));
+        continue;
+      }
+
+      const text = await response.text();
+      throw new Error(`SPARQL-Fehler ${response.status}: ${text.substring(0, 300)}`);
+    } catch (e) {
+      if (attempt < MAX_RETRIES) {
+        const backoff = attempt * 5000;
+        console.warn(`[Wikidata] ${label}: ${(e as Error).message}, Retry ${attempt}/${MAX_RETRIES}...`);
+        await new Promise((r) => setTimeout(r, backoff));
+        continue;
+      }
+      throw e;
+    }
   }
 
-  const json = (await response.json()) as SparqlResponse;
-  return json.results.bindings;
+  return [];
 }
 
 /**
@@ -252,29 +311,41 @@ export async function importWikidata() {
   console.log("[Wikidata] Starte Import deutscher Unternehmen via SPARQL...");
 
   try {
-    // Phase 1: Alle Ergebnisse via SPARQL holen (paginiert)
+    // Phase 1: Drei separate, leichtgewichtige Queries ausführen.
+    // Jede ist auf ihrer Property/Typ verankert → kein Timeout.
     const allResults: WikidataResult[] = [];
-    let offset = 0;
-    let hasMore = true;
 
-    while (hasMore) {
-      console.log(`[Wikidata] SPARQL-Abfrage: OFFSET ${offset}, LIMIT ${BATCH_SIZE}...`);
+    // 1+2: Seltene Properties (Mitarbeiter, Umsatz) — verlässlich schnell
+    const rareQueries: Array<{ label: string; query: string }> = [
+      { label: "Mitarbeiter (P1128)", query: buildRarePropertyQuery("P1128") },
+      { label: "Umsatz (P2139)", query: buildRarePropertyQuery("P2139") },
+    ];
 
-      const query = buildSparqlQuery(BATCH_SIZE, offset);
-      const batch = await executeSparqlQuery(query);
-
-      console.log(`[Wikidata] ${batch.length} Ergebnisse erhalten.`);
+    for (const { label, query } of rareQueries) {
+      console.log(`[Wikidata] SPARQL-Abfrage: ${label}...`);
+      const batch = await executeSparqlQuery(query, label);
+      console.log(`[Wikidata] ${label}: ${batch.length} Ergebnisse erhalten.`);
       allResults.push(...batch);
       totalFetched += batch.length;
+      await new Promise((r) => setTimeout(r, RATE_LIMIT_MS));
+    }
 
-      if (batch.length < BATCH_SIZE) {
-        hasMore = false;
-      } else {
-        offset += BATCH_SIZE;
-        // Rate-Limit einhalten
-        console.log(`[Wikidata] Warte ${RATE_LIMIT_MS}ms (Rate-Limit)...`);
-        await new Promise((r) => setTimeout(r, RATE_LIMIT_MS));
+    // 3: Webseiten pro Firmen-Typ (fehlertolerant — ein Timeout killt nicht den Import)
+    const seenTypes = new Set<string>();
+    for (const [typeQid, typeName] of COMPANY_TYPES) {
+      if (seenTypes.has(typeQid)) continue;
+      seenTypes.add(typeQid);
+
+      console.log(`[Wikidata] SPARQL-Abfrage: Webseiten/${typeName} (${typeQid})...`);
+      try {
+        const batch = await executeSparqlQuery(buildWebsiteQueryForType(typeQid), `Webseiten/${typeName}`);
+        console.log(`[Wikidata] Webseiten/${typeName}: ${batch.length} Ergebnisse erhalten.`);
+        allResults.push(...batch);
+        totalFetched += batch.length;
+      } catch (e) {
+        console.warn(`[Wikidata] Webseiten/${typeName} übersprungen: ${(e as Error).message}`);
       }
+      await new Promise((r) => setTimeout(r, RATE_LIMIT_MS));
     }
 
     console.log(`[Wikidata] Insgesamt ${totalFetched} Zeilen geladen. Dedupliziere...`);
