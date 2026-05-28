@@ -29,7 +29,10 @@ CREATE INDEX IF NOT EXISTS idx_entities_type_name ON entities (entity_type, cano
 
 -- Vektor-Spalte für semantische Suche (BGE-M3 = 1024 Dimensionen)
 ALTER TABLE entities ADD COLUMN IF NOT EXISTS embedding vector(1024);
-CREATE INDEX IF NOT EXISTS idx_entities_embedding ON entities USING ivfflat (embedding vector_cosine_ops) WITH (lists = 1000);
+-- HNSW-Index: funktioniert auch bei wenig Daten zuverlässig (ivfflat braucht viele
+-- Vektoren pro Liste, sonst liefert die ORDER-BY-Suche leere Ergebnisse).
+-- HNSW erst anlegen wenn genug Embeddings da sind — bis dahin reicht der Seq-Scan.
+-- CREATE INDEX idx_entities_embedding ON entities USING hnsw (embedding vector_cosine_ops);
 
 CREATE TABLE IF NOT EXISTS entity_identifiers (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
