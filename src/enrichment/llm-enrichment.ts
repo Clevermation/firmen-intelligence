@@ -90,6 +90,10 @@ async function generateProfile(
   delete env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE;
   delete env.ANTHROPIC_API_KEY;
   if (slot.token) env.CLAUDE_CODE_OAUTH_TOKEN = slot.token;
+  // Im Docker-Container läuft alles als root — IS_SANDBOX=1 erlaubt der
+  // claude-CLI dort --dangerously-skip-permissions (sonst Abbruch als root)
+  env.IS_SANDBOX = "1";
+  if (!env.HOME) env.HOME = "/tmp";
 
   try {
     const stream = query({
