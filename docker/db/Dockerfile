@@ -1,16 +1,8 @@
+# Apache AGE (PostgreSQL 18) + pgvector
+# apache/age:latest ist aktuell PG18. pgvector kommt als fertiges PGDG-Paket
+# (postgresql-18-pgvector) — kein Kompilieren nötig, exakt passende PG-Version.
 FROM apache/age
 
-# pgvector Extension für Vektor-Ähnlichkeitssuche installieren
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      build-essential \
-      postgresql-server-dev-16 \
-      git \
-      ca-certificates && \
-    git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git /tmp/pgvector && \
-    cd /tmp/pgvector && \
-    make && make install && \
-    rm -rf /tmp/pgvector && \
-    apt-get purge -y build-essential postgresql-server-dev-16 git && \
-    apt-get autoremove -y && \
+    apt-get install -y --no-install-recommends postgresql-18-pgvector && \
     rm -rf /var/lib/apt/lists/*
