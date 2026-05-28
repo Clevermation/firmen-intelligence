@@ -1,256 +1,166 @@
 /**
- * LLM-Enrichment-Pipeline: Claude Haiku für semantische Firmenprofile
- * Nutzt OAuth-Token-Rotation über mehrere Accounts.
+ * LLM-Enrichment-Pipeline: Claude Haiku für semantische Firmenprofile.
+ *
+ * Nutzt das Claude Agent SDK (query) mit Subscription-OAuth-Token.
+ * WICHTIG: Subscription-Tokens (sk-ant-oat…) funktionieren NICHT mit der
+ * direkten /v1/messages-API — nur über das Agent SDK / die claude-CLI.
+ *
+ * Token-Bereitstellung (in Reihenfolge der Präferenz):
+ *  1. CLAUDE_CODE_OAUTH_TOKEN  — langlebiger Token aus `claude setup-token`
+ *  2. CLAUDE_OAUTH_TOKENS      — kommagetrennt für Rotation über mehrere Accounts
+ *  3. Umgebungs-Auth           — lokal via Keychain (nur für Tests)
  */
+import { query } from "@anthropic-ai/claude-agent-sdk";
 import { getDb, closeDb } from "../db/connection";
 import { updateEntityData } from "../db/helpers";
 
-// ── Token-Konfiguration ──
+const MODEL = "haiku";
+const MAX_PARALLEL = parseInt(process.env.LLM_PARALLEL ?? "3", 10);
 
-interface AccountConfig {
-  name: string;
-  token: string;
-  refreshToken: string;
-  email: string;
-  tier: number;
-  usage5h: number;
-  usage7d: number;
-  lastUsed: number;
-  blocked5h: boolean;
-  blocked7d: boolean;
-}
+const SYSTEM_PROMPT = `Du bist ein B2B-Sales-Analyst. Gib AUSSCHLIESSLICH den reinen Profiltext aus: keine Überschriften, keine Markdown-Formatierung, keine Aufzählungen, keine Meta-Hinweise, keine Rückfragen, keine Einleitung. Schreibe 4-6 zusammenhängende Sätze auf Deutsch, faktenbasiert — nur was aus den Rohdaten hervorgeht. Fokus: Kerngeschäft, Digitalisierungsgrad, Online-Präsenz, Wachstumssignale, mögliche Pain Points.`;
 
-const ACCOUNTS_PATH =
-  process.env.CLAUDE_ACCOUNTS_PATH ??
-  "/Users/jonneschwegmann/Desktop/Jonne_Felix/Clevermation/Intern/Test-Projekte/claude-sdk-test/accounts.json";
-
-const MODEL = "claude-haiku-4-5-20251001";
-const MAX_PARALLEL = 3;
-const USAGE_LIMIT_5H = 0.8; // 80% vom 5h-Window
-const USAGE_LIMIT_7D = 0.8; // 80% vom 7d-Window
-const BATCH_SIZE = 50;
-
-// ── Profil-Prompt ──
-
-const SYSTEM_PROMPT = `Du bist ein B2B-Sales-Analyst. Erstelle semantische Firmenprofile aus Rohdaten.
-Schreibe auf Deutsch, präzise und faktenbasiert. Keine Spekulation — nur was aus den Daten hervorgeht.`;
-
-function buildUserPrompt(data: Record<string, unknown>, name: string): string {
+function buildPrompt(data: Record<string, unknown>, name: string): string {
   const fields = Object.entries(data)
-    .filter(([, v]) => v !== null && v !== undefined && v !== "")
+    .filter(([k, v]) =>
+      v !== null && v !== undefined && v !== "" &&
+      !["semantic_profile", "embedding", "enriched_at", "enrichment_model"].includes(k)
+    )
     .map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
     .join("\n");
 
-  return `Erstelle ein semantisches Firmenprofil für "${name}" aus diesen Rohdaten.
-
-ROHDATEN:
-${fields}
-
-AUSGABE (300-500 Wörter, strukturiert):
-1. Kerngeschäft und Positionierung (2-3 Sätze)
-2. Digitalisierungsgrad und Tech-Stack (2-3 Sätze, wenn Daten vorhanden)
-3. Online-Präsenz und Marketing-Reife (2-3 Sätze, wenn Daten vorhanden)
-4. Wachstumssignale und aktuelle Entwicklungen (2-3 Sätze)
-5. Potentielle Pain Points und Herausforderungen (2-3 Sätze)
-6. Entscheider und Organisationsstruktur (1-2 Sätze, wenn Daten vorhanden)
-
-Wenn für einen Abschnitt keine Daten vorliegen, überspringe ihn.`;
+  return `Erstelle ein semantisches B2B-Firmenprofil für "${name}" aus diesen Rohdaten:\n\n${fields}`;
 }
 
 // ── Token-Rotation ──
 
-let accounts: AccountConfig[] = [];
-
-async function loadAccounts(): Promise<void> {
-  const file = Bun.file(ACCOUNTS_PATH);
-  const raw = await file.json() as Array<{
-    name: string;
-    token: string;
-    refreshToken: string;
-    email: string;
-    tier: number;
-  }>;
-
-  // Nur Tier-20-Accounts für Bulk (Tier 5 hat zu wenig Kapazität)
-  accounts = raw
-    .filter((a) => a.tier >= 20)
-    .map((a) => ({
-      ...a,
-      usage5h: 0,
-      usage7d: 0,
-      lastUsed: 0,
-      blocked5h: false,
-      blocked7d: false,
-    }));
-
-  console.log(`[LLM] ${accounts.length} Accounts geladen (Tier ≥ 20)`);
+interface TokenSlot {
+  token: string | undefined; // undefined = Umgebungs-Auth (Keychain)
+  label: string;
+  blocked: boolean;
 }
 
-function getAvailableAccount(): AccountConfig | null {
-  const available = accounts.filter((a) => !a.blocked5h && !a.blocked7d);
-  if (available.length === 0) return null;
+function loadTokens(): TokenSlot[] {
+  const slots: TokenSlot[] = [];
 
-  // Wähle den Account mit der niedrigsten 5h-Usage
-  available.sort((a, b) => a.usage5h - b.usage5h);
-  return available[0];
-}
-
-async function callClaude(
-  account: AccountConfig,
-  systemPrompt: string,
-  userPrompt: string
-): Promise<string | null> {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": account.token,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-
-    // Rate-Limit oder Overloaded
-    if (response.status === 429 || response.status === 529) {
-      console.warn(`[LLM] ${account.name}: Rate-Limit erreicht, blockiere 5h-Window`);
-      account.blocked5h = true;
-      setTimeout(() => {
-        account.blocked5h = false;
-        account.usage5h = 0;
-        console.log(`[LLM] ${account.name}: 5h-Block aufgehoben`);
-      }, 5 * 60 * 60 * 1000);
-      return null;
-    }
-
-    // Token abgelaufen → Refresh versuchen
-    if (response.status === 401) {
-      console.warn(`[LLM] ${account.name}: Token abgelaufen, versuche Refresh...`);
-      const refreshed = await refreshToken(account);
-      if (!refreshed) return null;
-      return callClaude(account, systemPrompt, userPrompt);
-    }
-
-    console.error(`[LLM] ${account.name}: API-Fehler ${response.status}: ${errorText.slice(0, 200)}`);
-    return null;
+  // Mehrere Tokens (Rotation)
+  if (process.env.CLAUDE_OAUTH_TOKENS) {
+    const tokens = process.env.CLAUDE_OAUTH_TOKENS.split(",").map((t) => t.trim()).filter(Boolean);
+    tokens.forEach((t, i) => slots.push({ token: t, label: `Token ${i + 1}`, blocked: false }));
   }
 
-  const result = await response.json() as {
-    content: Array<{ type: string; text?: string }>;
-    usage: { input_tokens: number; output_tokens: number };
-  };
+  // Einzelner Token
+  if (slots.length === 0 && process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+    slots.push({ token: process.env.CLAUDE_CODE_OAUTH_TOKEN, label: "OAuth-Token", blocked: false });
+  }
 
-  // Usage tracken
-  const totalTokens = result.usage.input_tokens + result.usage.output_tokens;
-  account.usage5h += totalTokens;
-  account.usage7d += totalTokens;
-  account.lastUsed = Date.now();
+  // Fallback: Umgebungs-Auth (lokal via Keychain)
+  if (slots.length === 0) {
+    slots.push({ token: undefined, label: "Umgebungs-Auth", blocked: false });
+  }
 
-  const textBlock = result.content.find((c) => c.type === "text");
-  return textBlock?.text ?? null;
+  return slots;
 }
 
-async function refreshToken(account: AccountConfig): Promise<boolean> {
+let tokenSlots: TokenSlot[] = [];
+let rotationIdx = 0;
+
+function nextToken(): TokenSlot | null {
+  const available = tokenSlots.filter((s) => !s.blocked);
+  if (available.length === 0) return null;
+  const slot = available[rotationIdx % available.length];
+  rotationIdx++;
+  return slot;
+}
+
+/**
+ * Generiert ein Firmenprofil über das Agent SDK.
+ * Gibt den Profiltext zurück oder null bei Fehler.
+ */
+async function generateProfile(
+  data: Record<string, unknown>,
+  name: string
+): Promise<string | null> {
+  const slot = nextToken();
+  if (!slot) return null;
+
+  // Saubere Umgebung — Claude-Code-Session-Variablen entfernen
+  const env: Record<string, string | undefined> = { ...process.env };
+  delete env.CLAUDECODE;
+  delete env.CLAUDE_CODE_ENTRYPOINT;
+  delete env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE;
+  delete env.ANTHROPIC_API_KEY;
+  if (slot.token) env.CLAUDE_CODE_OAUTH_TOKEN = slot.token;
+
   try {
-    const response = await fetch("https://api.anthropic.com/v1/oauth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        grant_type: "refresh_token",
-        refresh_token: account.refreshToken,
-      }),
+    const stream = query({
+      prompt: buildPrompt(data, name),
+      options: {
+        systemPrompt: { type: "preset", preset: "claude_code", append: SYSTEM_PROMPT },
+        model: MODEL,
+        maxTurns: 1,
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        env: env as Record<string, string>,
+      },
     });
 
-    if (!response.ok) {
-      console.error(`[LLM] Token-Refresh fehlgeschlagen für ${account.name}`);
-      account.blocked5h = true;
-      return false;
+    let text = "";
+    for await (const event of stream) {
+      if (event.type === "assistant") {
+        const msg = event as any;
+        for (const block of msg.message?.content ?? []) {
+          if (block.type === "text") text = block.text;
+        }
+      }
+      if (event.type === "result") {
+        const r = event as any;
+        if (typeof r.result === "string" && r.result.trim()) text = r.result;
+      }
     }
 
-    const data = await response.json() as { access_token: string; refresh_token?: string };
-    account.token = data.access_token;
-    if (data.refresh_token) account.refreshToken = data.refresh_token;
-    console.log(`[LLM] Token erneuert für ${account.name}`);
-    return true;
+    const cleaned = text.trim();
+    return cleaned.length > 40 ? cleaned : null;
   } catch (e) {
-    console.error(`[LLM] Refresh-Fehler: ${(e as Error).message}`);
-    return false;
+    const msg = (e as Error).message ?? "";
+    if (msg.includes("429") || msg.includes("rate") || msg.includes("limit") || msg.includes("401")) {
+      console.warn(`[LLM] ${slot.label}: blockiert (${msg.slice(0, 60)})`);
+      slot.blocked = true;
+    } else {
+      console.error(`[LLM] Fehler (${slot.label}): ${msg.slice(0, 120)}`);
+    }
+    return null;
   }
 }
 
-// ── Enrichment-Pipeline ──
+// ── Pipeline ──
 
-interface EnrichmentStats {
+export interface EnrichmentStats {
   total: number;
   enriched: number;
-  skipped: number;
   errors: number;
-  tokensUsed: number;
-}
-
-async function enrichEntity(
-  entityId: string,
-  name: string,
-  data: Record<string, unknown>
-): Promise<boolean> {
-  const account = getAvailableAccount();
-  if (!account) {
-    console.warn("[LLM] Kein Account verfügbar — alle blockiert. Pause...");
-    return false;
-  }
-
-  const userPrompt = buildUserPrompt(data, name);
-  const profile = await callClaude(account, SYSTEM_PROMPT, userPrompt);
-
-  if (!profile) return false;
-
-  await updateEntityData(entityId, {
-    semantic_profile: profile,
-    enrichment_model: MODEL,
-    enriched_at: new Date().toISOString(),
-  });
-
-  return true;
 }
 
 export async function importLLMEnrichment(options?: {
   limit?: number;
-  tierFilter?: string;
   minMitarbeiter?: number;
-}) {
+}): Promise<EnrichmentStats> {
   const db = getDb();
-  const limit = options?.limit ?? 1000;
+  const limit = options?.limit ?? 100;
   const minMA = options?.minMitarbeiter ?? 0;
 
-  // Import-Run starten
   const runResult = await db.unsafe(
     `INSERT INTO import_runs (source, status) VALUES ('llm-enrichment', 'running') RETURNING id`
   );
   const runId = runResult[0].id as string;
 
-  const stats: EnrichmentStats = {
-    total: 0,
-    enriched: 0,
-    skipped: 0,
-    errors: 0,
-    tokensUsed: 0,
-  };
+  const stats: EnrichmentStats = { total: 0, enriched: 0, errors: 0 };
 
   try {
-    await loadAccounts();
+    tokenSlots = loadTokens();
+    rotationIdx = 0;
+    console.log(`[LLM] ${tokenSlots.length} Token-Slot(s): ${tokenSlots.map((s) => s.label).join(", ")}`);
 
-    if (accounts.length === 0) {
-      throw new Error("Keine verfügbaren Accounts (Tier ≥ 20) gefunden");
-    }
-
-    // Firmen holen die noch kein semantic_profile haben
+    // Tier-1-Firmen ohne Profil holen (Mitarbeiter DESC, dann mit Website)
     const firms = await db.unsafe(`
       SELECT id, canonical_name, data
       FROM entities
@@ -269,60 +179,40 @@ export async function importLLMEnrichment(options?: {
     stats.total = firms.length;
     console.log(`[LLM] ${stats.total} Firmen zum Enrichment gefunden`);
 
-    // In Batches verarbeiten
     for (let i = 0; i < firms.length; i += MAX_PARALLEL) {
       const batch = firms.slice(i, i + MAX_PARALLEL);
 
       const results = await Promise.allSettled(
-        batch.map((firm: any) =>
-          enrichEntity(
-            firm.id as string,
-            firm.canonical_name as string,
-            firm.data as Record<string, unknown>
-          )
-        )
+        batch.map(async (firm: any) => {
+          const profile = await generateProfile(
+            firm.data as Record<string, unknown>,
+            firm.canonical_name as string
+          );
+          if (!profile) return false;
+          await updateEntityData(firm.id as string, {
+            semantic_profile: profile,
+            enrichment_model: MODEL,
+            enriched_at: new Date().toISOString(),
+          });
+          return true;
+        })
       );
 
-      for (const result of results) {
-        if (result.status === "fulfilled" && result.value) {
-          stats.enriched++;
-        } else if (result.status === "fulfilled" && !result.value) {
-          // Account blockiert oder Fehler
-          const account = getAvailableAccount();
-          if (!account) {
-            console.warn("[LLM] Alle Accounts blockiert — breche ab");
-            stats.skipped = stats.total - stats.enriched - stats.errors;
-            break;
-          }
-          stats.errors++;
-        } else {
-          stats.errors++;
-        }
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value) stats.enriched++;
+        else stats.errors++;
       }
 
-      // Kein Account mehr verfügbar → aufhören
-      if (!getAvailableAccount()) {
-        console.warn("[LLM] Alle Accounts blockiert — beende vorzeitig");
-        stats.skipped = stats.total - stats.enriched - stats.errors;
+      // Alle Tokens blockiert → abbrechen
+      if (tokenSlots.every((s) => s.blocked)) {
+        console.warn("[LLM] Alle Token-Slots blockiert — beende vorzeitig");
         break;
       }
 
-      // Fortschritt loggen
-      if ((i + MAX_PARALLEL) % BATCH_SIZE === 0 || i + MAX_PARALLEL >= firms.length) {
-        const tokenSum = accounts.reduce((sum, a) => sum + a.usage5h, 0);
-        stats.tokensUsed = tokenSum;
-        console.log(
-          `[LLM] ${stats.enriched}/${stats.total} enriched | ` +
-          `${stats.errors} Fehler | ~${tokenSum.toLocaleString()} Tokens`
-        );
+      if ((i + MAX_PARALLEL) % 30 === 0 || i + MAX_PARALLEL >= firms.length) {
+        console.log(`[LLM] ${stats.enriched}/${stats.total} enriched | ${stats.errors} Fehler`);
       }
-
-      // Kleine Pause zwischen Batches
-      await new Promise((r) => setTimeout(r, 200));
     }
-
-    // Token-Summe final
-    stats.tokensUsed = accounts.reduce((sum, a) => sum + a.usage5h, 0);
 
     await db.unsafe(
       `UPDATE import_runs SET status = 'completed', finished_at = now(),
@@ -330,11 +220,7 @@ export async function importLLMEnrichment(options?: {
        WHERE id = '${runId}'`
     );
 
-    console.log(`[LLM] Enrichment abgeschlossen!`);
-    console.log(`  Enriched: ${stats.enriched}/${stats.total}`);
-    console.log(`  Fehler: ${stats.errors}`);
-    console.log(`  Tokens: ~${stats.tokensUsed.toLocaleString()}`);
-
+    console.log(`[LLM] Abgeschlossen: ${stats.enriched}/${stats.total} enriched, ${stats.errors} Fehler`);
     return stats;
   } catch (e) {
     await db.unsafe(
@@ -347,71 +233,10 @@ export async function importLLMEnrichment(options?: {
   }
 }
 
-// ── Batch-API Alternative (Anthropic Messages Batches) ──
-
-export async function createBatchEnrichment(options?: { limit?: number }) {
-  const db = getDb();
-  const limit = options?.limit ?? 10000;
-
-  // Firmen ohne Profil holen
-  const firms = await db.unsafe(`
-    SELECT id, canonical_name, data
-    FROM entities
-    WHERE entity_type = 'firma'
-      AND data->>'status' = 'aktiv'
-      AND data->>'semantic_profile' IS NULL
-      AND data->>'rechtsform' IN ('GMBH', 'AG', 'SE', 'UG (HAFTUNGSBESCHRÄNKT)')
-    ORDER BY
-      CASE WHEN data->>'mitarbeiter' IS NOT NULL THEN (data->>'mitarbeiter')::int ELSE 0 END DESC
-    LIMIT ${limit}
-  `);
-
-  console.log(`[Batch] ${firms.length} Firmen für Batch vorbereitet`);
-
-  // Batch-Requests erstellen (JSONL-Format)
-  const requests = firms.map((firm: any) => ({
-    custom_id: firm.id,
-    params: {
-      model: MODEL,
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: [{
-        role: "user",
-        content: buildUserPrompt(firm.data as Record<string, unknown>, firm.canonical_name as string),
-      }],
-    },
-  }));
-
-  // In Chunks von 100k aufteilen (Batch API Limit)
-  const chunkSize = 50000;
-  const chunks = [];
-  for (let i = 0; i < requests.length; i += chunkSize) {
-    chunks.push(requests.slice(i, i + chunkSize));
-  }
-
-  console.log(`[Batch] ${chunks.length} Batch-Chunk(s) erstellt`);
-
-  // Batch-Requests als JSONL-Dateien speichern
-  for (let i = 0; i < chunks.length; i++) {
-    const jsonl = chunks[i].map((r) => JSON.stringify(r)).join("\n");
-    const outPath = `./data/batch-enrichment-${i + 1}.jsonl`;
-    await Bun.write(outPath, jsonl);
-    console.log(`[Batch] Chunk ${i + 1} gespeichert: ${outPath} (${chunks[i].length} Requests)`);
-  }
-
-  return { chunks: chunks.length, totalRequests: requests.length };
-}
-
 // ── CLI ──
 
 if (import.meta.main) {
-  const arg = process.argv[2];
-  const limit = parseInt(process.argv[3] ?? "100", 10);
-
-  if (arg === "batch") {
-    await createBatchEnrichment({ limit });
-  } else {
-    await importLLMEnrichment({ limit });
-  }
+  const limit = parseInt(process.argv[2] ?? "10", 10);
+  await importLLMEnrichment({ limit });
   await closeDb();
 }
